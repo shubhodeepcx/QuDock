@@ -307,6 +307,6 @@ Released under the [MIT License](LICENSE). See `LICENSE` for details.
 **BlackOut** · Team ID `VTU-QFF-HC-0140` · Tier `Online`
 · Built with ⚛️ Qiskit for the VTU-QFF Hackathon
 
-[⬆ Back to Top](#BlackOut)
+[⬆ Back to Top](#blackout)
 
 </div>
