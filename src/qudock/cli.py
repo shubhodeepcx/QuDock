@@ -1,4 +1,4 @@
-"""Command line entry point: ``qudock data`` and ``qudock benchmark``."""
+"""Command line entry point: ``qudock data``, ``benchmark`` and ``sweep``."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ from pathlib import Path
 
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
 from qudock.data import load_bace, random_split, scaffold_split
-from qudock.plots import learning_curve
+from qudock.plots import learning_curve, qubit_sweep
+from qudock.sweep import qubit_sweep as run_sweep
 
 
 def cmd_data(args):
@@ -41,6 +42,21 @@ def cmd_benchmark(args):
     print(f"wrote results to {out}/")
 
 
+def cmd_sweep(args):
+    lo, hi = (int(v) for v in args.qubits.split("-"))
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+
+    perf, diag = run_sweep(range(lo, hi + 1), seeds=range(args.seeds))
+    perf.to_csv(out / "qubit_sweep.csv", index=False)
+    diag.to_csv(out / "kernel_diagnostics.csv", index=False)
+    qubit_sweep(perf, diag, out / "qubit_sweep.png")
+
+    print(perf.groupby(["n_qubits", "model"])["roc_auc"].mean().unstack().round(3))
+    print(diag.round(3).to_string(index=False))
+    print(f"wrote results to {out}/")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="qudock")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -58,6 +74,12 @@ def main(argv=None):
     p.add_argument("--reps", type=int, default=2)
     p.add_argument("--out", default="results")
     p.set_defaults(func=cmd_benchmark)
+
+    p = sub.add_parser("sweep", help="ROC-AUC and kernel geometry across qubit counts")
+    p.add_argument("--qubits", default="2-10", help="range, e.g. 2-10")
+    p.add_argument("--seeds", type=int, default=3)
+    p.add_argument("--out", default="results")
+    p.set_defaults(func=cmd_sweep)
 
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,
