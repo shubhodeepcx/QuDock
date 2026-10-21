@@ -26,3 +26,29 @@ def learning_curve(summary: pd.DataFrame, path, metric: str = "ROC-AUC"):
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def qubit_sweep(perf: pd.DataFrame, diag: pd.DataFrame, path):
+    """Left: test ROC-AUC vs qubits. Right: kernel concentration vs qubits."""
+    fig, (a, b) = plt.subplots(1, 2, figsize=(10, 4))
+    summary = perf.groupby(["n_qubits", "model"])["roc_auc"].agg(["mean", "std"]).reset_index()
+    for model, g in summary.groupby("model"):
+        style = {"lw": 2.5} if model == "qsvc" else {"lw": 1.5, "alpha": 0.85}
+        a.errorbar(g["n_qubits"], g["mean"], yerr=g["std"], marker="o", capsize=3,
+                   label=LABELS.get(model, model), **style)
+    a.set_xlabel("qubits (= PCA components)")
+    a.set_ylabel("test ROC-AUC (scaffold split)")
+    a.legend(frameon=False)
+    a.grid(alpha=0.3)
+
+    for bw, g in diag.groupby("bandwidth"):
+        b.plot(g["n_qubits"], g["offdiag_var"], marker="o", label=f"bandwidth {bw:g}")
+    b.set_yscale("log")
+    b.set_xlabel("qubits")
+    b.set_ylabel("variance of off-diagonal kernel values")
+    b.set_title("kernel concentration", fontsize=10)
+    b.legend(frameon=False)
+    b.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
