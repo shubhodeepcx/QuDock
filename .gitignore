@@ -28,23 +28,31 @@ htmlcov/
 .ruff_cache/
 .dmypy.json
 
-# Secrets and environment -- NEVER commit these
+# Secrets and environment, never commit these
 .env
 .env.*
 *.pem
 *.key
 secrets.yaml
 credentials.json
+qiskit-ibm.json
 
 # Generated data and large artifacts
 *.h5
 *.hdf5
-*.npy
-*.npz
 *.qasm.out
 data/*.csv
 data/*.pkl
 !data/sample.csv
+
+# QuDock data, models and run outputs
+data/raw/
+data/cache/
+results/runs/
+results/smoke/
+results/models/
+*.joblib
+demo/ranked.csv
 
 # Quantum backend output
 backend_provider_*.json
