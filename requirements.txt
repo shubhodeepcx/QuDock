@@ -1,20 +1,20 @@
-# Same dependencies as pyproject.toml; `pip install -e .[dev]` is the preferred install.
+# Exact versions we tested with. pyproject.toml keeps looser ranges; `pip install -e .[dev]` also works.
 
 # Quantum
-qiskit>=2.0
-qiskit-aer>=0.17
-qiskit-machine-learning>=0.9
-qiskit-ibm-runtime>=0.30
+qiskit==2.6.0
+qiskit-aer==0.18.0
+qiskit-machine-learning==0.9.1
+qiskit-ibm-runtime==0.50.0
 
 # Chemistry, ML and plotting
-rdkit>=2024.3
-scikit-learn>=1.4
-numpy>=1.26
-pandas>=2.1
-matplotlib>=3.8
+rdkit==2026.9.1
+scikit-learn==1.9.1
+numpy==2.4.6
+pandas==3.0.6
+matplotlib==3.11.2
 
 # Testing and notebooks
-pytest>=8.0
-ruff>=0.5
-jupyterlab>=4.0
-pylatexenc>=2.10
+pytest==9.1.1
+ruff==0.17.1
+jupyterlab==4.6.4
+pylatexenc==2.11
