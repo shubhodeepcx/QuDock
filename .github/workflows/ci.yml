@@ -8,9 +8,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      # qiskit-aer and scikit-learn each bundle OpenMP; give glibc room for both
-      GLIBC_TUNABLES: glibc.rtld.optional_static_tls=4096000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,3 +17,7 @@ jobs:
       - run: pip install -e .[dev]
       - run: ruff check .
       - run: pytest -q
+        env:
+          # qiskit-aer and scikit-learn each bundle OpenMP; give glibc room for both.
+          # Only set for pytest: it shrinks thread stacks enough to crash ruff.
+          GLIBC_TUNABLES: glibc.rtld.optional_static_tls=4096000
