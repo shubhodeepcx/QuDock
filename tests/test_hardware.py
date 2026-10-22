@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
+from qiskit import transpile
+from qiskit_aer import AerSimulator
 from qiskit_ibm_runtime.fake_provider import FakeTorino
 
+from qudock import hardware
 from qudock.hardware import (
     HardwareConfig,
     counts_to_kernel,
@@ -31,7 +34,23 @@ def test_counts_to_kernel_fills_both_triangles():
     assert np.allclose(K, [[1, 0.75, 0.5], [0.75, 1, 0], [0.5, 0, 1]])
 
 
-def test_hardware_study_on_fake_device_and_reanalyse(tmp_path):
+class _Job:
+    def job_id(self):
+        return "test-job"
+
+    def usage(self):
+        return 0
+
+
+def _ideal_run(backend, circuits, shots, max_execution_time, seed):
+    # stands in for the device: ideal counts, so the test needs no runtime service
+    sim = AerSimulator(seed_simulator=seed)
+    result = sim.run(transpile(circuits, sim), shots=shots).result()
+    return [result.get_counts(i) for i in range(len(circuits))], _Job(), 0
+
+
+def test_hardware_study_and_reanalyse(tmp_path, monkeypatch):
+    monkeypatch.setattr(hardware, "run_on_backend", _ideal_run)
     cfg = HardwareConfig(n_qubits=2, n_molecules=4, shots=256, max_execution_time=None)
     rows, kernels, info = run_hardware_study(cfg, backend=FakeTorino(), df=TOY)
     assert info["n_circuits"] == 6
