@@ -44,8 +44,8 @@ class SampledZZKernel:
         self.seed = seed
         self.simulator = simulator or make_simulator(seed=seed)
         circuit, self._x, self._y = fidelity_circuit(n_qubits, reps, entanglement)
-        # transpile once; each kernel entry only binds new angles
-        self.circuit = transpile(circuit, self.simulator, optimization_level=1,
+        # transpile once (level 3 picks a good qubit layout); each entry only binds new angles
+        self.circuit = transpile(circuit, self.simulator, optimization_level=3,
                                  seed_transpiler=seed)
 
     def _estimate(self, pairs: list[tuple[np.ndarray, np.ndarray]]) -> np.ndarray:
