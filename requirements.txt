@@ -1,21 +1,19 @@
-# Core quantum SDK
-qiskit>=1.0,<2.0
+# Same dependencies as pyproject.toml; `pip install -e .[dev]` is the preferred install.
+
+# Quantum
+qiskit>=2.0
+qiskit-aer>=0.17
+qiskit-machine-learning>=0.9
 qiskit-ibm-runtime>=0.30
 
-# Local simulator
-qiskit-aer>=0.15
-
-# Optional add-ons -- remove the ones you do not use
-qiskit-algorithms>=0.3
-qiskit-optimization>=0.6
-qiskit-nature>=0.7
-
-# Numerics, data and plotting
+# Chemistry, ML and plotting
+rdkit>=2024.3
+scikit-learn>=1.4
 numpy>=1.26
-scipy>=1.11
 pandas>=2.1
 matplotlib>=3.8
-scikit-learn>=1.4
 
-# Testing
+# Testing and notebooks
 pytest>=8.0
+ruff>=0.5
+jupyterlab>=4.0
