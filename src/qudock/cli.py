@@ -1,4 +1,4 @@
-"""Command line entry point: ``qudock data``, ``benchmark`` and ``sweep``."""
+"""Command line entry point: ``qudock data``, ``benchmark``, ``sweep`` and ``noise``."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ from pathlib import Path
 
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
 from qudock.data import load_bace, random_split, scaffold_split
-from qudock.plots import learning_curve, qubit_sweep
+from qudock.noise_study import NoiseConfig, run_noise_study
+from qudock.plots import learning_curve, noise_study, qubit_sweep
 from qudock.sweep import qubit_sweep as run_sweep
 
 
@@ -57,6 +58,23 @@ def cmd_sweep(args):
     print(f"wrote results to {out}/")
 
 
+def cmd_noise(args):
+    cfg = NoiseConfig(n_qubits=args.qubits, n_train=args.n_train, n_test=args.n_test,
+                      shots=[int(s) for s in args.shots.split(",")],
+                      backend=args.backend, seeds=list(range(args.seeds)))
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+
+    results = run_noise_study(cfg)
+    results.to_csv(out / "noise_study.csv", index=False)
+    noise_study(results, out / "noise_study.png")
+
+    summary = (results.groupby(["reps", "noise", "shots", "psd_repair"])
+               [["rel_frobenius", "roc_auc"]].mean().round(3))
+    print(summary)
+    print(f"wrote results to {out}/")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="qudock")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -80,6 +98,16 @@ def main(argv=None):
     p.add_argument("--seeds", type=int, default=3)
     p.add_argument("--out", default="results")
     p.set_defaults(func=cmd_sweep)
+
+    p = sub.add_parser("noise", help="QSVC with shot-sampled kernels on a fake IBM backend")
+    p.add_argument("--qubits", type=int, default=4)
+    p.add_argument("--n-train", type=int, default=80)
+    p.add_argument("--n-test", type=int, default=40)
+    p.add_argument("--shots", default="256,1024,4096")
+    p.add_argument("--backend", default="FakeTorino")
+    p.add_argument("--seeds", type=int, default=3)
+    p.add_argument("--out", default="results")
+    p.set_defaults(func=cmd_noise)
 
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,
