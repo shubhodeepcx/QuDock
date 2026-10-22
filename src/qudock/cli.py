@@ -1,4 +1,5 @@
-"""Command line entry point: ``qudock data``, ``benchmark``, ``sweep`` and ``noise``."""
+"""Command line entry point: ``qudock data``, ``benchmark``, ``sweep``, ``noise`` and
+``hardware``."""
 
 from __future__ import annotations
 
@@ -8,6 +9,7 @@ from pathlib import Path
 
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
 from qudock.data import load_bace, random_split, scaffold_split
+from qudock.hardware import HardwareConfig, reanalyse, run_hardware_study, save_hardware_study
 from qudock.noise_study import NoiseConfig, run_noise_study
 from qudock.plots import learning_curve, noise_study, qubit_sweep
 from qudock.sweep import qubit_sweep as run_sweep
@@ -75,6 +77,24 @@ def cmd_noise(args):
     print(f"wrote results to {out}/")
 
 
+def cmd_hardware(args):
+    out = Path(args.out)
+    cfg = HardwareConfig(n_molecules=args.molecules, shots=args.shots, backend=args.backend)
+    if args.reanalyse:
+        rows, kernels, info = reanalyse(out, cfg)
+    else:
+        backend = None
+        if args.fake:
+            from qiskit_ibm_runtime.fake_provider import FakeTorino
+            backend = FakeTorino()
+        rows, kernels, info = run_hardware_study(cfg, backend=backend)
+    save_hardware_study(rows, kernels, info, out)
+
+    print(rows.round(3).to_string(index=False))
+    print(f"{info['backend']}  job {info['job_id']}  quantum seconds {info['quantum_seconds']}")
+    print(f"wrote results to {out}/")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="qudock")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -108,6 +128,16 @@ def main(argv=None):
     p.add_argument("--seeds", type=int, default=3)
     p.add_argument("--out", default="results")
     p.set_defaults(func=cmd_noise)
+
+    p = sub.add_parser("hardware", help="measure a small kernel on an IBM Quantum device")
+    p.add_argument("--backend", default=None, help="device name, default: least busy")
+    p.add_argument("--molecules", type=int, default=12)
+    p.add_argument("--shots", type=int, default=1024)
+    p.add_argument("--fake", action="store_true", help="run on FakeTorino locally instead")
+    p.add_argument("--reanalyse", action="store_true",
+                   help="redo the comparison from saved device kernels, no device needed")
+    p.add_argument("--out", default="results/hardware")
+    p.set_defaults(func=cmd_hardware)
 
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,
