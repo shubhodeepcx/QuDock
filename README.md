@@ -30,6 +30,7 @@
 - [Proposed Solution](#-proposed-solution)
 - [Approach & Architecture](#-approach--architecture)
 - [Results](#-results)
+- [Demo](#-demo)
 - [Tech Stack](#-tech-stack)
 - [Project Structure](#-project-structure)
 - [How to Run](#-how-to-run)
@@ -210,6 +211,16 @@ without PSD repair.
 
 ---
 
+## 🎬 Demo
+
+A screenshot from the [demo notebook](notebooks/demo.ipynb), run end to end on a laptop with 4
+qubits and 300 training molecules. It shows the ZZ feature map circuit, the quantum kernel next
+to the classical RBF kernel, and the test ROC-AUC of every model on the same features.
+
+![Demo notebook](docs/demo.png)
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
@@ -234,6 +245,7 @@ vtu-hc-blackout/
 ├── requirements.txt       # Python dependencies
 ├── pyproject.toml         # Package metadata and the `qudock` command
 ├── Dockerfile
+├── docs/demo.png          # Demo screenshot
 ├── .github/workflows/     # CI: ruff + pytest on every push
 ├── notebooks/
 │   └── demo.ipynb         # End-to-end walkthrough of the pipeline and results
@@ -390,14 +402,14 @@ git pull --rebase       # update your branch on top of main
 
 ## ✅ Submission Checklist
 
-- [ ] Repository created and **public**
-- [ ] All team members added as **collaborators** and invitations accepted
-- [ ] `README.md` updated with project details, problem statement and solution
+- [x] Repository created and **public**
+- [x] All team members added as **collaborators** and invitations accepted
+- [x] `README.md` updated with project details, problem statement and solution
 - [ ] Team members listed under [Team Members](#-team-members-github-ids)
 - [ ] `requirements.txt` committed and project runs from a clean clone
-- [ ] Code pushed to `main` and the latest `main` builds successfully
-- [ ] Notebooks committed with **cleared outputs** (or use `nbstrip`)
-- [ ] `README` includes a demo screenshot / video link
+- [x] Code pushed to `main` and the latest `main` builds successfully
+- [x] Notebooks committed with **cleared outputs** (or use `nbstrip`)
+- [x] `README` includes a demo screenshot / video link
 - [ ] Short project summary submitted on the hackathon portal
 
 ---
