@@ -52,3 +52,31 @@ def qubit_sweep(perf: pd.DataFrame, diag: pd.DataFrame, path):
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def noise_study(results: pd.DataFrame, path):
+    """Left: kernel error vs shots. Right: test ROC-AUC vs shots. One line per noise/reps."""
+    raw = results[~results["psd_repair"] & (results["noise"] != "exact")]
+    exact = results[results["noise"] == "exact"].groupby("reps")["roc_auc"].mean()
+    fig, (a, b) = plt.subplots(1, 2, figsize=(10, 4))
+    for (noise, reps), g in raw.groupby(["noise", "reps"]):
+        m = g.groupby("shots")[["rel_frobenius", "roc_auc"]].agg(["mean", "std"])
+        label = f"{noise}, reps={reps}"
+        a.errorbar(m.index, m[("rel_frobenius", "mean")], yerr=m[("rel_frobenius", "std")],
+                   marker="o", capsize=3, label=label)
+        b.errorbar(m.index, m[("roc_auc", "mean")], yerr=m[("roc_auc", "std")],
+                   marker="o", capsize=3, label=label)
+    for reps, auc in exact.items():
+        b.axhline(auc, ls="--", lw=1, color="grey")
+        b.annotate(f"exact kernel, reps={reps}", (raw["shots"].min(), auc), fontsize=8,
+                   va="bottom")
+    for ax in (a, b):
+        ax.set_xscale("log", base=2)
+        ax.set_xlabel("shots per kernel entry")
+        ax.grid(alpha=0.3)
+    a.set_ylabel("relative error vs exact kernel")
+    b.set_ylabel("test ROC-AUC")
+    a.legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
