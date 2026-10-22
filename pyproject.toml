@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.5"]
+notebook = ["jupyterlab>=4.0", "pylatexenc>=2.10"]
 
 [project.scripts]
 qudock = "qudock.cli:main"
