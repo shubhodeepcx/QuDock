@@ -86,11 +86,7 @@ who experiences it, and why does it matter. Link to the official problem
 statement from the brief if one applies.
 -->
 
-**Problem:** In early drug discovery, thousands of molecules are screened to find the few that
-block a target protein. Lab-measured activity data is expensive, so models often have to learn
-from only a handful of examples. Quantum kernels are often said to learn more from less data,
-but these claims are rarely checked against properly tuned classical models, on realistic data
-splits, or with hardware noise included.
+**Problem:** Early-stage drug discovery involves screening thousands of molecules to identify compounds that can inhibit a specific target protein. However, obtaining experimentally measured activity data is expensive and time-consuming, meaning machine learning models often have to learn from limited labelled examples. Quantum machine learning, particularly quantum kernel methods, offers a potential approach by representing molecular data in quantum feature spaces that may capture complex patterns. However, claims that these methods learn more effectively from less data remain uncertain. Their performance must be evaluated against properly tuned classical models using realistic molecular data splits, while accounting for data leakage, computational costs, and quantum hardware noise.
 
 **Why it matters:** β-secretase 1 (BACE-1) is an important drug target for Alzheimer's disease.
 If we know where a quantum kernel actually helps (if it helps at all) and how well it holds up
