@@ -17,7 +17,7 @@
 | **Tier** | Online |
 | **Repository** | [vtu-hc-blackout](https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout.git) |
 | **Organisation** | [vtu-qiskit-fall-fest-2026](https://github.com/vtu-qiskit-fall-fest-2026) |
-| **Event** | VTU-QFF Hackathon — VTU-Qiskit Fall Fest 2026 |
+| **Event** | VTU-QFF Hackathon, VTU-Qiskit Fall Fest 2026 |
 
 </div>
 
@@ -67,15 +67,16 @@ who experiences it, and why does it matter. Link to the official problem
 statement from the brief if one applies.
 -->
 
-**Problem:** Early-stage drug discovery screens thousands of molecules to find the few that
-inhibit a target protein, and labelled activity data is expensive, so models often have to
-learn from very few examples. Quantum kernel methods are often proposed as a way to learn more
-from less data, but claims of quantum advantage are rarely tested fairly against tuned classical
-baselines, on realistic splits, or under hardware noise.
+**Problem:** In early drug discovery, thousands of molecules are screened to find the few that
+block a target protein. Lab-measured activity data is expensive, so models often have to learn
+from only a handful of examples. Quantum kernels are often said to learn more from less data,
+but these claims are rarely checked against properly tuned classical models, on realistic data
+splits, or with hardware noise included.
 
-**Why it matters:** β-secretase 1 (BACE-1) is a leading Alzheimer's disease target. Knowing
-*where* (if anywhere) a quantum kernel helps, and how much of its behaviour survives real
-devices, tells us whether quantum machine learning is worth using for virtual screening today.
+**Why it matters:** β-secretase 1 (BACE-1) is an important drug target for Alzheimer's disease.
+If we know where a quantum kernel actually helps (if it helps at all) and how well it holds up
+on noisy hardware, we can judge whether quantum machine learning is useful for virtual
+screening right now.
 
 **Track / Category:** Online · Quantum machine learning · Drug discovery
 
@@ -88,20 +89,21 @@ Describe your solution. Keep it concrete: the core idea, the user flow, and
 the quantum/ML technique you are applying.
 -->
 
-**Solution:** **QuDock**, a reproducible hybrid quantum–classical pipeline that predicts
-BACE-1 inhibition from molecular structure. It encodes compressed molecular fingerprints into a
-ZZ feature map, trains a quantum-kernel SVM (QSVC), and benchmarks it head-to-head against
-SVM-RBF, Random Forest and Logistic Regression on identical features, from 25 to 1,210 training
-molecules, across 2 to 10 qubits, and under simulated IBM hardware noise.
+**Solution:** We built **QuDock**, a hybrid quantum and classical pipeline that predicts whether
+a molecule inhibits BACE-1. Molecular fingerprints are compressed and loaded into a ZZ feature
+map, and a quantum kernel SVM (QSVC) is trained on the result. We compare it with SVM-RBF,
+Random Forest and Logistic Regression on the same features, with 25 to 1,210 training
+molecules, 2 to 10 qubits, and simulated IBM hardware noise.
 
-**Key idea:** A fidelity quantum kernel $k(x, y) = |\langle\phi(x)|\phi(y)\rangle|^2$ on a
-ZZ feature map, judged by a fair, statistically tested benchmark plus kernel-geometry diagnostics
-(geometric difference, kernel-target alignment, concentration).
+**Key idea:** Use the fidelity kernel $k(x, y) = |\langle\phi(x)|\phi(y)\rangle|^2$ of a ZZ
+feature map, and test it with a fair benchmark plus a few checks on the kernel itself
+(geometric difference, kernel-target alignment and concentration).
 
-**Why this works:** Every model sees exactly the same qubit-sized features, splits are by
-molecular scaffold (the test set holds unseen chemotypes), hyperparameters are tuned by
-cross-validation, and results are averaged over seeds with paired significance tests, so any gap
-between quantum and classical is real rather than an artefact of the setup.
+**Why this works:** All models get exactly the same features. The data is split by molecular
+scaffold, so the test set contains molecule families the models have never seen.
+Hyperparameters are tuned with cross-validation, and every result is averaged over several
+seeds and checked with a paired significance test. So if quantum and classical results differ,
+it is because of the models and not because of how we set up the comparison.
 
 ---
 
@@ -123,29 +125,34 @@ flowchart LR
     G --> H
 ```
 
-1. **Input** — MoleculeNet BACE: 1,513 SMILES strings, each labelled inhibitor / non-inhibitor
-   (`qudock.data`).
-2. **Preprocessing** — canonicalise SMILES, drop unparsable and conflicting duplicates,
-   Bemis–Murcko scaffold split (1,210 train / 303 test); Morgan (ECFP4) fingerprints → standardise
-   → PCA to one component per qubit → rescale to [0, π], all fit on training data only
+1. **Input:** the MoleculeNet BACE dataset, 1,513 SMILES strings, each labelled as inhibitor or
+   non-inhibitor (`qudock.data`).
+2. **Preprocessing:** we canonicalise the SMILES, drop molecules that can't be parsed or have
+   conflicting labels, and split by Bemis-Murcko scaffold (1,210 train, 303 test). Each molecule
+   becomes a Morgan (ECFP4) fingerprint, which is standardised, reduced with PCA to one value per
+   qubit and rescaled to [0, π]. All of this is fit on the training data only
    (`qudock.features`).
-3. **Quantum core** — ZZFeatureMap (linear entanglement, 1–2 reps, tunable bandwidth). The kernel
-   is computed exactly from statevectors (cached) for the benchmark, and from compute–uncompute
-   circuits with finite shots on AerSimulator, with and without the FakeTorino noise model, for
-   the noise study (`qudock.quantum`, `qudock.noise`).
-4. **Post-processing** — SVM on the precomputed kernel; hyperparameters (C, bandwidth) chosen by
-   stratified inner cross-validation; noisy kernels optionally repaired to the nearest PSD matrix.
-5. **Output** — test ROC-AUC, accuracy, F1, MCC per model, training size and seed; Wilcoxon tests
-   of QSVC vs the best classical model; kernel diagnostics; figures in `results/full/`.
+3. **Quantum core:** a ZZFeatureMap with linear entanglement, 1 or 2 reps and a tunable
+   bandwidth. For the benchmark the kernel is computed exactly from statevectors (and cached).
+   For the noise study it is estimated from compute-uncompute circuits with a finite number of
+   shots on AerSimulator, with and without the FakeTorino noise model (`qudock.quantum`,
+   `qudock.noise`).
+4. **Post-processing:** an SVM is trained on the precomputed kernel, with C and bandwidth chosen
+   by stratified inner cross-validation. Noisy kernels can optionally be repaired to the nearest
+   positive semi-definite (PSD) matrix.
+5. **Output:** test ROC-AUC, accuracy, F1 and MCC for each model, training size and seed,
+   Wilcoxon tests of QSVC against the best classical model, kernel diagnostics, and figures in
+   `results/full/`.
 
 ---
 
 ## 📊 Results
 
-All numbers are test ROC-AUC on the scaffold split. Full tables and figures are in
-[`results/full/`](results/full); the [demo notebook](notebooks/demo.ipynb) walks through them.
+All numbers are test ROC-AUC on the scaffold split. The full tables and figures are in
+[`results/full/`](results/full), and the [demo notebook](notebooks/demo.ipynb) goes through them
+step by step.
 
-**Sample efficiency** (6 qubits, mean of 5 seeds):
+**Sample efficiency** (6 qubits, average of 5 seeds):
 
 | Training molecules | QSVC | SVM-RBF | Random Forest | Logistic Regression |
 | --: | --: | --: | --: | --: |
@@ -158,14 +165,16 @@ All numbers are test ROC-AUC on the scaffold split. Full tables and figures are 
 
 ![Learning curve](results/full/learning_curve.png)
 
-**Qubit sweep** (full training set, mean of 3 seeds): QSVC peaks at 0.719 with 8 qubits, ahead
-of SVM-RBF (0.705) and Logistic Regression (0.626) but behind Random Forest (0.729).
+**Qubit sweep** (full training set, average of 3 seeds): QSVC does best with 8 qubits, at 0.719.
+That is better than SVM-RBF (0.705) and Logistic Regression (0.626) but still below Random
+Forest (0.729).
 
 ![Qubit sweep](results/full/qubit_sweep.png)
 
-**Noise study** (4 qubits, 80 train / 40 test molecules, 3 seeds, simulated IBM Torino):
-kernel entries are estimated from measurement shots, with and without the FakeTorino device
-noise model. Values are relative kernel error / test ROC-AUC (raw kernel, no PSD repair).
+**Noise study** (4 qubits, 80 train and 40 test molecules, 3 seeds, simulated IBM Torino):
+here each kernel entry is estimated from measurement shots, with and without the noise model of
+the FakeTorino device. Each cell shows relative kernel error / test ROC-AUC, using the raw kernel
+without PSD repair.
 
 | Setting | reps = 1 | reps = 2 |
 | :-- | --: | --: |
@@ -181,20 +190,23 @@ noise model. Values are relative kernel error / test ROC-AUC (raw kernel, no PSD
 
 **What we learned**
 
-- QSVC is competitive with an RBF SVM on the same features and clearly beats Logistic
-  Regression from 100 molecules up, but it never beats Random Forest. The gap to the best
-  classical model is 0.03–0.07 ROC-AUC at every training size. With 5 seeds none of these gaps
-  reaches significance (smallest possible Wilcoxon p = 0.06).
-- No small-data advantage: at 25–50 molecules QSVC is the *weakest* model, not the strongest.
-- The quantum kernel is geometrically very different from RBF (geometric difference up to ~100) and,
-  at bandwidth 0.5, aligns better with the labels (0.15–0.18 vs 0.09–0.10), but that extra
-  structure doesn't translate into better predictions here.
-- Kernel concentration is real: at bandwidth 1.0 the variance of off-diagonal kernel values
-  drops from 0.075 at 2 qubits to 0.005 at 10, so bandwidth tuning is essential.
-- Device noise distorts the kernel far more than shot noise: a 25–28% error that more shots
-  cannot remove, against 1.4–6.4% from shots alone. Yet test ROC-AUC stays at 0.62–0.66 in every
-  setting, and the spread between seeds (±0.05–0.10) means we can't measure any difference at
-  this sample size. Repairing the noisy kernel to be positive semi-definite barely matters.
+- QSVC does about as well as an RBF SVM on the same features and beats Logistic Regression
+  from 100 molecules up, but it never beats Random Forest. It is 0.03 to 0.07 ROC-AUC behind
+  the best classical model at every training size. With only 5 seeds none of these gaps is
+  statistically significant (the smallest possible Wilcoxon p-value is 0.06).
+- We found no advantage with little data. With 25 or 50 training molecules QSVC is actually the
+  weakest model.
+- The quantum kernel is very different from the RBF kernel (geometric difference up to about
+  100), and at bandwidth 0.5 it lines up better with the labels (alignment 0.15 to 0.18, against
+  0.09 to 0.10 for RBF). That didn't lead to better predictions on this dataset.
+- Kernel concentration shows up clearly. At bandwidth 1.0 the variance of the off-diagonal
+  kernel values falls from 0.075 at 2 qubits to 0.005 at 10 qubits, so the bandwidth has to be
+  tuned.
+- Device noise changes the kernel much more than shot noise does. It causes 25 to 28% error
+  that more shots don't fix, while shot noise alone causes 1.4 to 6.4%. Even so, test ROC-AUC
+  stays between 0.62 and 0.66 in every setting, and with the variation between seeds (about
+  0.05 to 0.10) we can't measure a difference at this sample size. Repairing the noisy kernel to
+  be PSD makes almost no difference.
 
 ---
 
@@ -309,8 +321,8 @@ pytest -q
 
 ## 🔁 How to Push Code
 
-> Full walkthrough: **[Git & Collaboration Handbook](../vtu-hc-guide-git-and-collaboration)** — collaboration
-> workflow, branches, pull requests, reviews and conflict resolution.
+> Full walkthrough: **[Git & Collaboration Handbook](../vtu-hc-guide-git-and-collaboration)**, covering
+> the collaboration workflow, branches, pull requests, reviews and conflict resolution.
 
 ### Configure Git (first time only)
 
@@ -368,11 +380,11 @@ git pull --rebase       # update your branch on top of main
 
 ### Collaborating on the same repo
 
-- **Never push directly to `main`** — open a Pull Request.
+- **Never push directly to `main`.** Open a Pull Request instead.
 - **Pull before you push** to avoid rejected commits.
 - **Commit often** with clear messages.
 - **Resolve conflicts** locally: `git pull --rebase`, fix the files, then `git add` + `git rebase --continue`.
-- **Ask for a review** before merging — a second pair of eyes catches bugs fast.
+- **Ask for a review** before merging. A second pair of eyes catches bugs fast.
 
 ---
 
