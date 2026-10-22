@@ -1,0 +1,25 @@
+{
+  "backend": "ibm_marrakesh",
+  "job_id": "dbd01doc77vs73874ug0",
+  "shots": 1024,
+  "n_molecules": 12,
+  "n_circuits": 66,
+  "max_two_qubit_depth": 18,
+  "quantum_seconds": 20,
+  "wall_seconds": 34.7,
+  "labels": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "date": "2026-10-22 17:56 India Standard Time"
+}

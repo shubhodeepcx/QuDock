@@ -1,0 +1,4 @@
+reps,kernel,rel_frobenius,alignment_to_exact
+2,FakeTorino (simulated),0.10303467127068465,0.997336786466176
+2,ibm_marrakesh,0.17527644215683175,0.9914592874431293
+2,"ibm_marrakesh, PSD repaired",0.1752764421568309,0.9914592874431291
