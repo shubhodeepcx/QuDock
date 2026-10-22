@@ -405,8 +405,8 @@ git pull --rebase       # update your branch on top of main
 - [x] Repository created and **public**
 - [x] All team members added as **collaborators** and invitations accepted
 - [x] `README.md` updated with project details, problem statement and solution
-- [ ] Team members listed under [Team Members](#-team-members-github-ids)
-- [ ] `requirements.txt` committed and project runs from a clean clone
+- [x] Team members listed under [Team Members](#-team-members-github-ids)
+- [x] `requirements.txt` committed and project runs from a clean clone
 - [x] Code pushed to `main` and the latest `main` builds successfully
 - [x] Notebooks committed with **cleared outputs** (or use `nbstrip`)
 - [x] `README` includes a demo screenshot / video link
