@@ -21,5 +21,6 @@ jobs:
           # qiskit-aer and scikit-learn each bundle OpenMP; give glibc room for both.
           # Only set for pytest: it shrinks thread stacks enough to crash ruff.
           GLIBC_TUNABLES: glibc.rtld.optional_static_tls=4096000
-          # that also shrinks OpenMP thread stacks, which crashes Aer's noisy simulation
+          # that also eats the 2 MB default stack of Rust threads (Qiskit's transpiler)
+          RUST_MIN_STACK: "33554432"
           OMP_STACKSIZE: 64M
