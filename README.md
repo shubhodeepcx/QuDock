@@ -94,7 +94,7 @@ the quantum/ML technique you are applying.
 a molecule inhibits BACE-1. Molecular fingerprints are compressed and loaded into a ZZ feature
 map, and a quantum kernel SVM (QSVC) is trained on the result. We compare it with SVM-RBF,
 Random Forest and Logistic Regression on the same features, with 25 to 1,210 training
-molecules, 2 to 10 qubits, and simulated IBM hardware noise.
+molecules, 2 to 10 qubits, with simulated IBM device noise, and on a real IBM quantum computer.
 
 **Key idea:** Use the fidelity kernel $k(x, y) = |\langle\phi(x)|\phi(y)\rangle|^2$ of a ZZ
 feature map, and test it with a fair benchmark plus a few checks on the kernel itself
@@ -136,8 +136,9 @@ flowchart LR
 3. **Quantum core:** a ZZFeatureMap with linear entanglement, 1 or 2 reps and a tunable
    bandwidth. For the benchmark the kernel is computed exactly from statevectors (and cached).
    For the noise study it is estimated from compute-uncompute circuits with a finite number of
-   shots on AerSimulator, with and without the FakeTorino noise model (`qudock.quantum`,
-   `qudock.noise`).
+   shots on AerSimulator, with and without the FakeTorino noise model. Finally, the same
+   circuits for 12 molecules are run on a real IBM device, ibm_marrakesh (`qudock.quantum`,
+   `qudock.noise`, `qudock.hardware`).
 4. **Post-processing:** an SVM is trained on the precomputed kernel, with C and bandwidth chosen
    by stratified inner cross-validation. Noisy kernels can optionally be repaired to the nearest
    positive semi-definite (PSD) matrix.
@@ -174,8 +175,9 @@ Forest (0.729).
 
 **Noise study** (4 qubits, 80 train and 40 test molecules, 3 seeds, simulated IBM Torino):
 here each kernel entry is estimated from measurement shots, with and without the noise model of
-the FakeTorino device. Each cell shows relative kernel error / test ROC-AUC, using the raw kernel
-without PSD repair.
+the FakeTorino device. Circuits are transpiled at optimization level 3, so they sit on well
+chosen qubits, as on a real device. Each cell shows relative kernel error / test ROC-AUC, using
+the raw kernel without PSD repair.
 
 | Setting | reps = 1 | reps = 2 |
 | :-- | --: | --: |
@@ -183,11 +185,24 @@ without PSD repair.
 | Shots only, 256 | 0.055 / 0.616 | 0.064 / 0.628 |
 | Shots only, 1024 | 0.027 / 0.649 | 0.032 / 0.622 |
 | Shots only, 4096 | 0.014 / 0.639 | 0.016 / 0.623 |
-| FakeTorino, 256 | 0.257 / 0.660 | 0.283 / 0.655 |
-| FakeTorino, 1024 | 0.251 / 0.664 | 0.277 / 0.637 |
-| FakeTorino, 4096 | 0.250 / 0.645 | 0.276 / 0.631 |
+| FakeTorino, 256 | 0.096 / 0.633 | 0.132 / 0.631 |
+| FakeTorino, 1024 | 0.082 / 0.659 | 0.119 / 0.644 |
+| FakeTorino, 4096 | 0.078 / 0.640 | 0.115 / 0.633 |
 
 ![Noise study](results/full/noise_study.png)
+
+**Real IBM quantum computer** (ibm_marrakesh, 12 test molecules with 6 inhibitors, 4 qubits,
+reps = 2, 66 circuits at 1,024 shots in one job, 20 seconds of quantum time): we measured the
+kernel on the device and compared it with the exact kernel and with FakeTorino simulating the
+same circuits.
+
+| Kernel | Relative error vs exact | Mean off-diagonal value | Correlation with exact |
+| :-- | --: | --: | --: |
+| Exact | 0.000 | 0.262 | 1.000 |
+| FakeTorino simulation | 0.103 | 0.238 | 0.999 |
+| ibm_marrakesh (real device) | 0.175 | 0.218 | 0.996 |
+
+Details, including the job ID, are in [`results/hardware/`](results/hardware).
 
 **What we learned**
 
@@ -203,11 +218,18 @@ without PSD repair.
 - Kernel concentration shows up clearly. At bandwidth 1.0 the variance of the off-diagonal
   kernel values falls from 0.075 at 2 qubits to 0.005 at 10 qubits, so the bandwidth has to be
   tuned.
-- Device noise changes the kernel much more than shot noise does. It causes 25 to 28% error
-  that more shots don't fix, while shot noise alone causes 1.4 to 6.4%. Even so, test ROC-AUC
-  stays between 0.62 and 0.66 in every setting, and with the variation between seeds (about
-  0.05 to 0.10) we can't measure a difference at this sample size. Repairing the noisy kernel to
-  be PSD makes almost no difference.
+- Device noise changes the kernel more than shot noise does. Simulated Torino noise causes 8 to
+  13% error that more shots don't fix, while shot noise alone causes 1.4 to 6.4%. Even so, test
+  ROC-AUC stays between 0.62 and 0.66 in every setting, and with the variation between seeds
+  (about 0.05 to 0.10) we can't measure a difference at this sample size. Repairing the noisy
+  kernel to be PSD makes almost no difference.
+- The real device is noisier than the simulation (17.5% kernel error against 10.3% for
+  FakeTorino on the same molecules), but the kernel keeps its shape: its values correlate 0.996
+  with the exact kernel. The noise mostly shrinks every value a little, which is why the SVM's
+  ranking of molecules, and so its accuracy, barely changes.
+- Our first noise study placed circuits on poorly chosen qubits and reported 25 to 28% error.
+  Checking it against the real device exposed this, and the numbers above are from the
+  corrected run.
 
 ---
 
@@ -226,11 +248,12 @@ to the classical RBF kernel, and the test ROC-AUC of every model on the same fea
 | Layer | Technology |
 | :--- | :--- |
 | Language | Python 3.11+ |
-| Quantum SDK | Qiskit 2.x, Qiskit Aer, Qiskit IBM Runtime (fake backends) |
+| Quantum SDK | Qiskit 2.x, Qiskit Aer, Qiskit IBM Runtime (fake backends and a real device) |
 | Quantum ML | ZZ feature map fidelity kernel + scikit-learn SVM (QSVC) |
 | Chemistry | RDKit (SMILES parsing, Morgan fingerprints, Murcko scaffolds) |
 | Classical ML | scikit-learn (SVM-RBF, Random Forest, Logistic Regression, PCA) |
 | Simulation | Statevector (exact kernel), AerSimulator with FakeTorino noise model |
+| Hardware | IBM Quantum Platform, ibm_marrakesh (156 qubits), open plan |
 | Testing / CI | pytest, ruff, GitHub Actions |
 | Environment | JupyterLab / VS Code, `venv`, Docker |
 | Version control | Git + GitHub |
@@ -259,9 +282,11 @@ vtu-hc-blackout/
 │   ├── sweep.py           # Qubit sweep
 │   ├── noise.py           # Shot-based kernel estimation, PSD repair
 │   ├── noise_study.py     # Noise study on a fake IBM backend
+│   ├── hardware.py        # Kernel on a real IBM device
 │   ├── plots.py           # Figures
 │   └── cli.py             # `qudock` command line
 ├── results/full/          # Benchmark, sweep and noise study outputs
+├── results/hardware/      # Real-device kernel run
 ├── data/                  # Downloaded dataset cache (not committed)
 └── tests/                 # Unit tests
 ```
@@ -299,7 +324,8 @@ pip install -e .[dev]            # or: pip install -r requirements.txt
 ```
 
 > **Linux only:** if importing Qiskit Aer fails with *"cannot allocate memory in static TLS
-> block"*, run `export GLIBC_TUNABLES=glibc.rtld.optional_static_tls=4096000` first.
+> block"*, run `export GLIBC_TUNABLES=glibc.rtld.optional_static_tls=4096000` first, together
+> with `export RUST_MIN_STACK=33554432` so the transpiler's threads keep enough stack.
 
 ### 4. Run
 
@@ -308,6 +334,8 @@ qudock data                          # download BACE, show split sizes
 qudock benchmark --out results/full  # learning curves, ~15 min
 qudock sweep --out results/full      # 2-10 qubit sweep + kernel diagnostics, ~15 min
 qudock noise --out results/full      # shot + device noise study, ~30 min
+qudock hardware --reanalyse          # redo the real-device comparison from saved results
+qudock hardware                      # rerun on a real IBM device (needs a saved IBM account)
 ```
 
 Or open the walkthrough notebook:
