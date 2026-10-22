@@ -191,7 +191,7 @@ the raw kernel without PSD repair.
 
 ![Noise study](results/full/noise_study.png)
 
-**Real IBM quantum computer** (ibm_marrakesh, 12 test molecules with 6 inhibitors, 4 qubits,
+**Real IBM quantum computer** (ibm_marrakesh, 12 training-set molecules with 6 inhibitors, 4 qubits,
 reps = 2, 66 circuits at 1,024 shots in one job, 20 seconds of quantum time): we measured the
 kernel on the device and compared it with the exact kernel and with FakeTorino simulating the
 same circuits.
