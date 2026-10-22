@@ -235,6 +235,9 @@ Details, including the job ID, are in [`results/hardware/`](results/hardware).
 
 ## 🎬 Demo
 
+**Demo video (about 3 minutes, with voiceover):**
+[watch on Google Drive](https://drive.google.com/file/d/10NvKCVIx2MdMAWu0CaVhgkHjuC_VR_92/view?usp=sharing)
+
 A screenshot from the [demo notebook](notebooks/demo.ipynb), run end to end on a laptop with 4
 qubits and 300 training molecules. It shows the ZZ feature map circuit, the quantum kernel next
 to the classical RBF kernel, and the test ROC-AUC of every model on the same features.
