@@ -38,6 +38,8 @@ changes.
 
 **Demo video:** [watch on Google Drive](https://drive.google.com/file/d/1OTeBUtPmAVXjLHDfY9hQSltsozOvAb8d/view?usp=sharing)
 
+**Live web app:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/)
+
 ---
 
 ## 📌 Table of Contents
@@ -249,6 +251,8 @@ Details, including the job ID, are in [`results/hardware/`](results/hardware).
 **Demo video (about 5.5 minutes, with voiceover: project demo, then how to use the app):**
 [watch on Google Drive](https://drive.google.com/file/d/1OTeBUtPmAVXjLHDfY9hQSltsozOvAb8d/view?usp=sharing)
 
+**Try it live:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) (the first visit takes a minute while the models train)
+
 A screenshot from the [demo notebook](notebooks/demo.ipynb), run end to end on a laptop with 4
 qubits and 300 training molecules. It shows the ZZ feature map circuit, the quantum kernel next
 to the classical RBF kernel, and the test ROC-AUC of every model on the same features.
@@ -353,7 +357,7 @@ qudock hardware --reanalyse          # redo the real-device comparison from save
 qudock hardware                      # rerun on a real IBM device (needs a saved IBM account)
 ```
 
-Or try the web app, where you can screen your own molecules and change the settings:
+Or try the web app, live at [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) or locally, where you can screen your own molecules and change the settings:
 
 ```bash
 pip install -e ".[app]"
