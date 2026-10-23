@@ -92,7 +92,7 @@ def q(fn, *args):
 
 def main():
     # ---------------------------------------------------------------- sidebar
-    st.sidebar.title("⚛️ QuDock")
+    st.sidebar.title("QuDock")
     st.sidebar.caption("Quantum kernels for Alzheimer's drug screening (BACE-1)")
     st.sidebar.subheader("Model settings")
     n_qubits = st.sidebar.slider("Qubits (one feature per qubit)", 2, 8, 4)
@@ -105,7 +105,7 @@ def main():
     run = train(n_qubits, n_train, reps, bandwidth)
     pipe, models = run["pipe"], run["models"]
 
-    st.title("⚛️ QuDock")
+    st.title("QuDock")
     st.subheader("Does a quantum kernel find Alzheimer's drug candidates?")
     st.write("Each molecule is turned into a fingerprint, compressed to one angle per qubit and "
              "loaded into a ZZ feature map. A quantum kernel SVM is compared with three classical "
