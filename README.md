@@ -36,7 +36,7 @@ advantage. Simulated IBM Torino noise distorts the kernel by 8 to 13%, and a rea
 ibm_marrakesh gives 17.5%, yet the kernel keeps its shape (correlation 0.996) and accuracy barely
 changes.
 
-**Demo video:** [watch on Google Drive](https://drive.google.com/file/d/1OTeBUtPmAVXjLHDfY9hQSltsozOvAb8d/view?usp=sharing)
+**Demo video:** [watch on Google Drive](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing)
 
 **Live web app:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/)
 
@@ -249,7 +249,7 @@ Details, including the job ID, are in [`results/hardware/`](results/hardware).
 ## 🎬 Demo
 
 **Demo video (about 5.5 minutes, with voiceover: project demo, then how to use the app):**
-[watch on Google Drive](https://drive.google.com/file/d/1OTeBUtPmAVXjLHDfY9hQSltsozOvAb8d/view?usp=sharing)
+[watch on Google Drive](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing)
 
 **Try it live:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) (the first visit takes a minute while the models train)
 
