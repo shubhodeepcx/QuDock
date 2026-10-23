@@ -299,6 +299,7 @@ vtu-hc-blackout/
 │   ├── hardware.py        # Kernel on a real IBM device
 │   ├── plots.py           # Figures
 │   └── cli.py             # `qudock` command line
+├── app/app.py             # Streamlit web app: screen molecules, compare models
 ├── results/full/          # Benchmark, sweep and noise study outputs
 ├── results/hardware/      # Real-device kernel run
 ├── data/                  # Downloaded dataset cache (not committed)
@@ -350,6 +351,13 @@ qudock sweep --out results/full      # 2-10 qubit sweep + kernel diagnostics, ~1
 qudock noise --out results/full      # shot + device noise study, ~30 min
 qudock hardware --reanalyse          # redo the real-device comparison from saved results
 qudock hardware                      # rerun on a real IBM device (needs a saved IBM account)
+```
+
+Or try the web app, where you can screen your own molecules and change the settings:
+
+```bash
+pip install -e ".[app]"
+streamlit run app/app.py         # opens http://localhost:8501
 ```
 
 Or open the walkthrough notebook:
