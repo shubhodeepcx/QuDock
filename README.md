@@ -40,6 +40,8 @@ changes.
 
 **Live web app:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/)
 
+**Presentation:** [VTU-QFF-HC-0140.pptx](docs/VTU-QFF-HC-0140.pptx)
+
 ---
 
 ## 📌 Table of Contents
@@ -252,6 +254,8 @@ Details, including the job ID, are in [`results/hardware/`](results/hardware).
 [watch on Google Drive](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing)
 
 **Try it live:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) (the first visit takes a minute while the models train)
+
+**Presentation:** [VTU-QFF-HC-0140.pptx](docs/VTU-QFF-HC-0140.pptx)
 
 A screenshot from the [demo notebook](notebooks/demo.ipynb), run end to end on a laptop with 4
 qubits and 300 training molecules. It shows the ZZ feature map circuit, the quantum kernel next
