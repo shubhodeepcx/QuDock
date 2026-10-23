@@ -36,7 +36,7 @@ advantage. Simulated IBM Torino noise distorts the kernel by 8 to 13%, and a rea
 ibm_marrakesh gives 17.5%, yet the kernel keeps its shape (correlation 0.996) and accuracy barely
 changes.
 
-**Demo video:** [watch on Google Drive](https://drive.google.com/file/d/10NvKCVIx2MdMAWu0CaVhgkHjuC_VR_92/view?usp=sharing)
+**Demo video:** [watch on Google Drive](https://drive.google.com/file/d/1OTeBUtPmAVXjLHDfY9hQSltsozOvAb8d/view?usp=sharing)
 
 ---
 
@@ -246,8 +246,8 @@ Details, including the job ID, are in [`results/hardware/`](results/hardware).
 
 ## 🎬 Demo
 
-**Demo video (about 3 minutes, with voiceover):**
-[watch on Google Drive](https://drive.google.com/file/d/10NvKCVIx2MdMAWu0CaVhgkHjuC_VR_92/view?usp=sharing)
+**Demo video (about 5.5 minutes, with voiceover: project demo, then how to use the app):**
+[watch on Google Drive](https://drive.google.com/file/d/1OTeBUtPmAVXjLHDfY9hQSltsozOvAb8d/view?usp=sharing)
 
 A screenshot from the [demo notebook](notebooks/demo.ipynb), run end to end on a laptop with 4
 qubits and 300 training molecules. It shows the ZZ feature map circuit, the quantum kernel next
