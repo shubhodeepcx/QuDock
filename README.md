@@ -246,6 +246,68 @@ Details, including the job ID, are in [`results/hardware/`](results/hardware).
   Checking it against the real device exposed this, and the numbers above are from the
   corrected run.
 
+### Final round: can a better-fed or hybrid quantum kernel close the gap?
+
+For the final round we went after the two weak points above: the quantum kernel only ever saw
+6 unsupervised PCA numbers, and the bandwidth was fixed by hand. Every model below runs on the
+same scaffold split, the same training sizes and the same 10 seeds
+(`qudock final --out results/final`, under an hour on a laptop CPU). Besides ROC-AUC we now
+report screening metrics: enrichment of inhibitors in the top 1% and 5% of the ranking, BEDROC
+and PR-AUC. All files are in [`results/final/`](results/final).
+
+What we added:
+
+- **Supervised compression:** PLS on the fingerprint plus 10 RDKit descriptors (weight, logP,
+  TPSA, H-bond donors and acceptors and so on) instead of PCA, so the 6 qubits get the
+  directions that matter for activity.
+- **Adaptive bandwidth:** chosen per run by kernel-target alignment on the training set only.
+  This is our answer to kernel concentration, and it picks 0.19 to 0.30 for PLS features and
+  0.55 to 0.80 for PCA features.
+- **Projected quantum kernel** (Huang et al., 2021): each molecule's single-qubit X, Y and Z
+  expectations go into an RBF kernel. It needs one circuit per molecule instead of one per pair,
+  which is what makes a full classifier on real hardware affordable.
+- **Hybrid kernel:** w x quantum + (1 - w) x Tanimoto on the full fingerprint, with w chosen by
+  inner cross-validation.
+- **Fair baselines:** SVM-RBF and Random Forest on exactly the same PLS features, and Tanimoto SVM
+  and Random Forest on the full 2,048-bit fingerprint, which is the classical ceiling.
+
+![Final round study](results/final/final_study.png)
+
+**Mean test ROC-AUC over 10 seeds** (6 qubits):
+
+| Training molecules | QSVC, PCA | QSVC, PLS + tuned bw | Projected, PLS | SVM-RBF, PLS | RF, PLS | Hybrid, PCA | Tanimoto SVM | RF, fingerprint |
+| --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| 50 | 0.607 | 0.656 | 0.581 | 0.675 | 0.666 | 0.651 | 0.655 | 0.684 |
+| 100 | 0.647 | 0.687 | 0.633 | 0.710 | 0.717 | 0.702 | 0.712 | 0.735 |
+| 200 | 0.663 | 0.712 | 0.687 | 0.737 | 0.737 | 0.726 | 0.742 | 0.756 |
+| 400 | 0.693 | 0.732 | 0.699 | 0.742 | 0.750 | 0.757 | 0.762 | 0.769 |
+| 1,210 | 0.708 | 0.743 | 0.717 | 0.769 | 0.768 | 0.776 | 0.781 | 0.782 |
+
+**Paired bootstrap on the full-size test set** (2,000 resamples of the same test molecules):
+
+| Comparison | ROC-AUC difference | 95% interval | p |
+| :-- | --: | --: | --: |
+| QSVC PLS vs QSVC PCA | +0.046 | -0.015 to 0.106 | 0.15 |
+| QSVC PLS vs SVM-RBF PCA (first-round baseline) | +0.102 | 0.033 to 0.170 | <0.001 |
+| QSVC PLS vs SVM-RBF PLS (same features) | -0.026 | -0.050 to -0.002 | 0.03 |
+| QSVC PLS vs RF PLS (same features) | -0.024 | -0.049 to 0.001 | 0.06 |
+| Hybrid PCA vs Tanimoto SVM | -0.020 | -0.054 to 0.013 | 0.27 |
+
+**What we learned in the final round**
+
+- Better features and a tuned bandwidth lift QSVC by 0.035 to 0.049 ROC-AUC at every training
+  size, and it now clearly beats the first-round SVM-RBF baseline (p < 0.001).
+- Most of that gain comes from the features, not from the quantum kernel. On the very same PLS
+  features, SVM-RBF and Random Forest still do 0.01 to 0.03 better at every size, and the difference against
+  SVM-RBF is significant (p = 0.03). We report this rather than the flattering comparison.
+- The hybrid kernel keeps a real quantum share (inner CV picks w between 0.1 and 0.5) and
+  reaches 0.776, within 0.006 of the best classical model, but it does not beat Tanimoto SVM
+  (p = 0.27). The quantum part adds information without hurting, but not enough to win.
+- With PLS inside the hybrid, inner CV overrates the quantum part, because PLS has already seen
+  the training labels. The PCA hybrid has no such leak and does better (0.776 against 0.755).
+- The projected kernel is slightly weaker than the fidelity kernel here, but it is the one we
+  can run as a full classifier on hardware (`qudock hardware-svm`).
+
 ---
 
 ## 🎬 Demo
@@ -296,7 +358,7 @@ vtu-hc-blackout/
 │   └── demo.ipynb         # End-to-end walkthrough of the pipeline and results
 ├── src/qudock/
 │   ├── data.py            # BACE download, cleaning, scaffold split
-│   ├── features.py        # ECFP fingerprints -> PCA -> qubit angles
+│   ├── features.py        # ECFP fingerprints (+ descriptors) -> PCA or PLS -> qubit angles
 │   ├── classical.py       # SVM-RBF, Random Forest, Logistic Regression
 │   ├── quantum.py         # ZZ fidelity kernel and QSVC
 │   ├── benchmark.py       # Sample-efficiency benchmark and statistics
@@ -305,11 +367,16 @@ vtu-hc-blackout/
 │   ├── noise.py           # Shot-based kernel estimation, PSD repair
 │   ├── noise_study.py     # Noise study on a fake IBM backend
 │   ├── hardware.py        # Kernel on a real IBM device
+│   ├── kernels.py         # Tanimoto, projected and hybrid kernels, bandwidth tuning
+│   ├── screening.py       # Enrichment, BEDROC, PR-AUC, paired bootstrap
+│   ├── final_study.py     # Final-round study
+│   ├── hardware_svm.py    # Projected-kernel SVM trained and tested on a real device
 │   ├── plots.py           # Figures
 │   └── cli.py             # `qudock` command line
 ├── app/app.py             # Streamlit web app: screen molecules, compare models
 ├── results/full/          # Benchmark, sweep and noise study outputs
 ├── results/hardware/      # Real-device kernel run
+├── results/final/         # Final-round study outputs
 ├── data/                  # Downloaded dataset cache (not committed)
 └── tests/                 # Unit tests
 ```
@@ -359,6 +426,9 @@ qudock sweep --out results/full      # 2-10 qubit sweep + kernel diagnostics, ~1
 qudock noise --out results/full      # shot + device noise study, ~30 min
 qudock hardware --reanalyse          # redo the real-device comparison from saved results
 qudock hardware                      # rerun on a real IBM device (needs a saved IBM account)
+qudock final --out results/final     # final-round study: PLS, tuned bandwidth, hybrid, under an hour
+qudock hardware-svm --fake           # projected-kernel SVM on a simulated IBM device
+qudock hardware-svm                  # same on a real IBM device, capped at 5 min of quantum time
 ```
 
 Or try the web app, live at [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) or locally, where you can screen your own molecules and change the settings:
