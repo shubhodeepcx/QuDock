@@ -1,0 +1,85 @@
+import numpy as np
+from qiskit.circuit.library import zz_feature_map
+from qiskit.quantum_info import SparsePauliOp, Statevector
+from sklearn.metrics import roc_auc_score
+
+from qudock.kernels import KernelSVM, ProjectedKernel, stack, tanimoto_kernel, tune_bandwidth
+from qudock.screening import paired_bootstrap, screening_metrics
+
+rng = np.random.default_rng(0)
+
+
+def test_tanimoto_matches_definition():
+    a = np.array([[1, 1, 0, 0], [1, 0, 1, 0]])
+    K = tanimoto_kernel(a)
+    assert np.allclose(np.diag(K), 1)
+    assert np.isclose(K[0, 1], 1 / 3)
+
+
+def test_tanimoto_of_empty_fingerprints_is_zero():
+    assert tanimoto_kernel(np.zeros((2, 3)))[0, 1] == 0
+
+
+def test_projected_kernel_is_a_valid_gram_matrix():
+    X = rng.uniform(0, np.pi, size=(10, 3))
+    pk = ProjectedKernel(3, gamma=0.5)
+    F = pk.features(X)
+    assert F.shape == (10, 9)
+    assert np.all(np.abs(F) <= 1 + 1e-9)
+    K = pk(X)
+    assert np.allclose(np.diag(K), 1)
+    assert np.allclose(K, K.T)
+    assert np.linalg.eigvalsh(K).min() > -1e-9
+
+
+def test_projected_features_are_single_qubit_expectations():
+    x = rng.uniform(0, np.pi, size=2)
+    state = Statevector(zz_feature_map(2, reps=2).assign_parameters(x))
+    expected = [state.expectation_value(SparsePauliOp(label)).real
+                for label in ("IX", "IY", "IZ", "XI", "YI", "ZI")]
+    assert np.allclose(ProjectedKernel(2).features(x[None])[0], expected)
+
+
+def test_tune_bandwidth_picks_from_grid():
+    X = rng.uniform(0, np.pi, size=(30, 2))
+    y = (X[:, 0] > np.pi / 2).astype(int)
+    assert tune_bandwidth(X, y, 2, grid=(0.2, 0.5)) in (0.2, 0.5)
+
+
+def _toy():
+    angles = rng.uniform(0, np.pi, size=(60, 2))
+    fps = (rng.random((60, 16)) > 0.7).astype(float)
+    y = (angles[:, 0] > np.pi / 2).astype(int)
+    fps[y == 1, :4] = 1  # make the fingerprint informative too
+    return stack(angles, fps), y
+
+
+def test_every_kernel_kind_learns_a_separable_toy_problem():
+    X, y = _toy()
+    for kind in ("quantum", "projected", "tanimoto", "hybrid", "hybrid_projected"):
+        model = KernelSVM(kind=kind, n_angles=2, C=10, bandwidth=1.0, gamma=5.0)
+        model.fit(X[:40], y[:40])
+        assert roc_auc_score(y[40:], model.decision_function(X[40:])) > 0.7, kind
+
+
+def test_hybrid_weights_interpolate_between_kernels():
+    X, _ = _toy()
+    q = KernelSVM(kind="quantum", n_angles=2).fit(X, np.arange(60) % 2)
+    t = KernelSVM(kind="tanimoto", n_angles=2).fit(X, np.arange(60) % 2)
+    h = KernelSVM(kind="hybrid", n_angles=2, weight=0.3).fit(X, np.arange(60) % 2)
+    assert np.allclose(h._gram(X), 0.3 * q._gram(X) + 0.7 * t._gram(X))
+
+
+def test_screening_metrics_for_a_perfect_ranking():
+    y = np.array([1, 1, 0, 0, 0, 0, 0, 0, 0, 0])
+    m = screening_metrics(y, -np.arange(10))
+    assert m["roc_auc"] == 1 and m["pr_auc"] == 1
+    assert m["ef_5"] > 1 and m["bedroc"] > 0.9
+
+
+def test_paired_bootstrap_detects_a_clear_difference():
+    y = np.tile([0, 1], 50)
+    good = y + rng.normal(0, 0.3, 100)
+    bad = rng.normal(0, 1, 100)
+    out = paired_bootstrap(y, good, bad, n_boot=300)
+    assert out["delta"] > 0.3 and out["ci_low"] > 0 and out["p_value"] < 0.05

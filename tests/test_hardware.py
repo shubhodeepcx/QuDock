@@ -58,3 +58,21 @@ def test_hardware_study_and_reanalyse(tmp_path, monkeypatch):
     save_hardware_study(rows, kernels, info, tmp_path)
     again, _, _ = reanalyse(tmp_path, cfg)
     assert np.allclose(again["rel_frobenius"], rows["rel_frobenius"])
+
+
+def test_hardware_svm_analysis_from_saved_features():
+    from qudock.hardware_svm import HardwareSVMConfig, analyse, exact_features
+
+    rng = np.random.default_rng(0)
+    cfg = HardwareSVMConfig(n_qubits=2)
+    X = rng.uniform(0, np.pi, size=(40, 2))
+    y = (X[:, 0] > np.pi / 2).astype(int)
+    F = exact_features(X, cfg)
+    saved = {"angles": X, "labels": y, "n_train": 30, "exact_features": F,
+             "device_features": F + rng.normal(0, 0.02, F.shape)}
+    rows = analyse(saved, cfg)
+    assert list(rows["features"]) == ["exact simulation", "device",
+                                      "trained exact, tested on device"]
+    assert rows.loc[0, "feature_error"] == 0
+    assert 0 < rows.loc[1, "feature_error"] < 0.05
+    assert rows["roc_auc"].between(0, 1).all()
