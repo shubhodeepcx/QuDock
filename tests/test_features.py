@@ -32,3 +32,17 @@ def test_pipeline_is_fit_on_train_only():
     before = pipe.pca_.components_.copy()
     pipe.transform(TEST)
     assert np.array_equal(before, pipe.pca_.components_)
+
+
+def test_pls_compression_uses_labels_and_stays_in_range():
+    smiles = ["CCO", "CCN", "c1ccccc1O", "CC(=O)O", "CCCCCC", "c1ccncc1", "CCOC", "OCCO"]
+    y = [0, 1, 0, 1, 0, 1, 0, 1]
+    pipe = FeaturePipeline(n_qubits=2, method="pls", use_descriptors=True)
+    X = pipe.fit_transform(smiles, y)
+    assert X.shape == (8, 2)
+    assert X.min() >= 0 and X.max() <= np.pi
+
+
+def test_pls_without_labels_is_refused():
+    with pytest.raises(ValueError):
+        FeaturePipeline(n_qubits=2, method="pls").fit(["CCO", "CCN", "CCC"])

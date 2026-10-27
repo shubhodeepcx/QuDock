@@ -1,15 +1,18 @@
 """Turn SMILES into qubit-ready feature vectors.
 
-Morgan fingerprint -> standardise -> PCA to ``n_qubits`` components ->
-rescale each component to [0, pi], the angle range of the ZZFeatureMap.
-Everything is fit on training molecules only.
+Morgan fingerprint (optionally plus RDKit descriptors) -> standardise ->
+compress to ``n_qubits`` components -> rescale each to [0, pi], the angle
+range of the ZZFeatureMap. Compression is PCA, or PLS, which uses the labels
+to keep the directions that separate inhibitors. Everything is fit on
+training molecules only.
 """
 
 from __future__ import annotations
 
 import numpy as np
 from rdkit import Chem
-from rdkit.Chem import rdFingerprintGenerator
+from rdkit.Chem import Descriptors, rdFingerprintGenerator
+from sklearn.cross_decomposition import PLSRegression
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
@@ -26,31 +29,63 @@ def morgan_fingerprints(smiles, radius: int = 2, n_bits: int = 2048) -> np.ndarr
     return fps
 
 
-class FeaturePipeline:
-    """Fingerprint -> scale -> PCA -> [0, pi] angles."""
+# physicochemical properties that matter for BACE-1 inhibitors and brain-penetrant drugs
+DESCRIPTORS = {
+    "mol_weight": Descriptors.MolWt,
+    "logp": Descriptors.MolLogP,
+    "tpsa": Descriptors.TPSA,
+    "h_donors": Descriptors.NumHDonors,
+    "h_acceptors": Descriptors.NumHAcceptors,
+    "rotatable_bonds": Descriptors.NumRotatableBonds,
+    "aromatic_rings": Descriptors.NumAromaticRings,
+    "fraction_sp3": Descriptors.FractionCSP3,
+    "heavy_atoms": Descriptors.HeavyAtomCount,
+    "rings": Descriptors.RingCount,
+}
 
-    def __init__(self, n_qubits: int = 4, radius: int = 2, n_bits: int = 2048, seed: int = 0):
+
+def descriptors(smiles) -> np.ndarray:
+    """RDKit descriptors in ``DESCRIPTORS`` as a float matrix."""
+    mols = [Chem.MolFromSmiles(s) for s in smiles]
+    return np.array([[f(m) for f in DESCRIPTORS.values()] for m in mols], dtype=np.float64)
+
+
+class FeaturePipeline:
+    """Fingerprint (+ descriptors) -> scale -> PCA or PLS -> [0, pi] angles."""
+
+    def __init__(self, n_qubits: int = 4, radius: int = 2, n_bits: int = 2048, seed: int = 0,
+                 method: str = "pca", use_descriptors: bool = False):
         self.n_qubits = n_qubits
         self.radius = radius
         self.n_bits = n_bits
         self.seed = seed
+        self.method = method
+        self.use_descriptors = use_descriptors
 
-    def fit(self, smiles) -> FeaturePipeline:
+    def _raw(self, smiles) -> np.ndarray:
         fps = morgan_fingerprints(smiles, self.radius, self.n_bits)
-        self.scaler_ = StandardScaler().fit(fps)
-        self.pca_ = PCA(n_components=self.n_qubits, random_state=self.seed)
-        reduced = self.pca_.fit_transform(self.scaler_.transform(fps))
-        self.angles_ = MinMaxScaler(feature_range=(0, np.pi)).fit(reduced)
+        return np.hstack([fps, descriptors(smiles)]) if self.use_descriptors else fps
+
+    def fit(self, smiles, y=None) -> FeaturePipeline:
+        raw = self._raw(smiles)
+        self.scaler_ = StandardScaler().fit(raw)
+        scaled = self.scaler_.transform(raw)
+        if self.method == "pls":
+            if y is None:
+                raise ValueError("PLS compression needs the training labels")
+            self.pca_ = PLSRegression(n_components=self.n_qubits, scale=False).fit(scaled, y)
+        else:
+            self.pca_ = PCA(n_components=self.n_qubits, random_state=self.seed).fit(scaled)
+        self.angles_ = MinMaxScaler(feature_range=(0, np.pi)).fit(self.pca_.transform(scaled))
         return self
 
     def transform(self, smiles) -> np.ndarray:
-        reduced = self.pca_.transform(self.scaler_.transform(
-            morgan_fingerprints(smiles, self.radius, self.n_bits)))
+        reduced = self.pca_.transform(self.scaler_.transform(self._raw(smiles)))
         # test molecules can land outside the training range
         return np.clip(self.angles_.transform(reduced), 0, np.pi)
 
-    def fit_transform(self, smiles) -> np.ndarray:
-        return self.fit(smiles).transform(smiles)
+    def fit_transform(self, smiles, y=None) -> np.ndarray:
+        return self.fit(smiles, y).transform(smiles)
 
     @property
     def explained_variance(self) -> float:

@@ -80,3 +80,44 @@ def noise_study(results: pd.DataFrame, path):
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+FINAL_LABELS = {
+    "svm_rbf_pca": "SVM-RBF, PCA", "rf_pca": "Random Forest, PCA", "qsvc_pca": "QSVC, PCA",
+    "qsvc_pls": "QSVC, PLS + tuned bandwidth", "projected_pls": "Projected quantum kernel, PLS",
+    "tanimoto_svm": "Tanimoto SVM", "rf_fingerprint": "Random Forest, fingerprint",
+    "svm_rbf_pls": "SVM-RBF, PLS", "rf_pls": "Random Forest, PLS",
+    "hybrid_pca": "Hybrid: quantum (PCA) + Tanimoto",
+    "hybrid_pls": "Hybrid: quantum (PLS) + Tanimoto",
+}
+QUANTUM = {"qsvc_pca", "qsvc_pls", "projected_pls", "hybrid_pca", "hybrid_pls"}
+
+
+def final_study(summary: pd.DataFrame, path):
+    """Test ROC-AUC (mean, 95% interval over seeds) against training size.
+
+    Left: models on 6 compressed features. Right: models that see the full fingerprint.
+    """
+    panels = [("6 qubit-sized features", ["svm_rbf_pls", "rf_pls", "qsvc_pca", "qsvc_pls",
+                                          "projected_pls"]),
+              ("full 2,048-bit fingerprint", ["tanimoto_svm", "rf_fingerprint", "hybrid_pca",
+                                              "hybrid_pls"])]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), sharey=True)
+    for ax, (title, models) in zip(axes, panels):
+        for model in models:
+            g = summary[summary["model"] == model].sort_values("n_train")
+            if g.empty:
+                continue
+            style = ({"lw": 2.4} if model in QUANTUM else {"lw": 1.4, "ls": "--", "alpha": 0.9})
+            ax.plot(g["n_train"], g["roc_auc"], marker="o", label=FINAL_LABELS[model], **style)
+            ax.fill_between(g["n_train"], g["roc_auc"] - g["roc_auc_ci"],
+                            g["roc_auc"] + g["roc_auc_ci"], alpha=0.12)
+        ax.set_xscale("log")
+        ax.set_title(title)
+        ax.set_xlabel("training molecules")
+        ax.grid(alpha=0.3)
+        ax.legend(frameon=False, fontsize=8)
+    axes[0].set_ylabel("test ROC-AUC (scaffold split)")
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)

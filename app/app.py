@@ -30,7 +30,7 @@ from qudock.analysis import geometric_difference, kernel_target_alignment
 from qudock.classical import make_classical, scores
 from qudock.data import load_bace, scaffold_split
 from qudock.features import FeaturePipeline
-from qudock.quantum import QSVC, ZZKernel
+from qudock.quantum import _STATE_CACHE, QSVC, ZZKernel
 
 RESULTS = ROOT / "results"
 NAMES = {"qsvc": "QSVC (quantum kernel)", "svm_rbf": "SVM-RBF", "random_forest": "Random Forest",
@@ -46,12 +46,16 @@ def dataset():
     return df, split.train, split.test
 
 
-@st.cache_resource(show_spinner="Training the quantum and classical models...")
+# keep only the last few settings, so visitors trying many combinations
+# do not push the hosted app over its memory limit
+@st.cache_resource(max_entries=3, show_spinner="Training the quantum and classical models...")
 def train(n_qubits: int, n_train: int, reps: int, bandwidth: float):
     return q(_train, dataset(), n_qubits, n_train, reps, bandwidth)
 
 
 def _train(data, n_qubits, n_train, reps, bandwidth):
+    # statevectors cached for earlier settings are never reused here
+    _STATE_CACHE.clear()
     df, train_idx, test_idx = data
     rng = np.random.default_rng(0)
     if n_train < len(train_idx):
@@ -238,6 +242,16 @@ def main():
 
     # ---------------------------------------------------------------- full results
     with tab_results:
+        st.subheader("Final round study (from results/final)")
+        st.image(str(RESULTS / "final" / "final_study.png"),
+                 caption="Mean test ROC-AUC over 10 seeds, 6 qubits, scaffold split")
+        summary = pd.read_csv(RESULTS / "final" / "final_summary.csv")
+        full = summary[summary["n_train"] == summary["n_train"].max()]
+        st.dataframe(full.drop(columns=["n_train"]).sort_values("roc_auc", ascending=False)
+                     .round(3), hide_index=True)
+        st.caption("PLS features and a tuned bandwidth lift QSVC from 0.708 to 0.743, but the "
+                   "same features help classical models more. Full-fingerprint models stay best.")
+
         st.subheader("Full experiments (from results/full)")
         c1, c2 = st.columns(2)
         c1.image(str(RESULTS / "full" / "learning_curve.png"),

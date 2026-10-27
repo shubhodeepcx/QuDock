@@ -42,3 +42,23 @@ def test_bootstrap_ci_brackets_the_auc():
     score = y + rng.normal(0, 1, 200)
     lo, hi = bootstrap_ci(y, score, n_boot=200)
     assert 0.5 < lo < hi < 1
+
+
+def test_final_study_runs_end_to_end_on_toy_data():
+    from qudock.final_study import (
+        MODELS,
+        FinalConfig,
+        compare_pairs,
+        run_final_study,
+        summarise_final,
+    )
+
+    cfg = FinalConfig(n_qubits=2, sizes=[None], seeds=[0], test_frac=0.3)
+    results, test_scores = run_final_study(cfg, df=TOY)
+    assert set(results["model"]) == set(MODELS)
+    assert results["roc_auc"].between(0, 1).all()
+    assert results.loc[results["model"] == "hybrid_pls", "weight"].notna().all()
+    assert set(test_scores.columns) == {"label", *MODELS}
+    assert {"roc_auc", "roc_auc_ci", "ef_1", "bedroc"} <= set(summarise_final(results).columns)
+    pairs = compare_pairs(test_scores, [("hybrid_pls", "tanimoto_svm")])
+    assert {"delta", "ci_low", "ci_high", "p_value"} <= set(pairs.columns)
