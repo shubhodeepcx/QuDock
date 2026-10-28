@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qudock"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Quantum kernels vs classical models for BACE-1 inhibitor screening"
 requires-python = ">=3.10"
 dependencies = [
@@ -26,6 +26,9 @@ app = ["streamlit>=1.40", "pylatexenc>=2.10"]
 
 [project.scripts]
 qudock = "qudock.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "qudock.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
