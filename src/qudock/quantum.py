@@ -46,15 +46,32 @@ class ZZKernel:
         key = (n_qubits, reps, entanglement, float(bandwidth))
         self._cache = _STATE_CACHE.setdefault(key, {})
 
+    def _simulate(self, X: np.ndarray) -> np.ndarray:
+        """Statevectors of the bound feature map, in Qiskit's qubit order."""
+        if self.entanglement != "linear":
+            return np.array([Statevector(self.circuit.assign_parameters(self.bandwidth * x)).data
+                             for x in X])
+        # the trainable kernel's numpy simulator with its weights left at one is
+        # this exact map, batched over molecules instead of one circuit each
+        from qudock.trainable import TrainableKernel
+
+        states = TrainableKernel(self.n_qubits, self.reps,
+                                 bandwidth=self.bandwidth).statevectors(X)
+        # it numbers qubits from the left, Qiskit from the right; global phase may differ
+        n = self.n_qubits
+        axes = (0, *range(n, 0, -1))
+        return states.reshape((len(X),) + (2,) * n).transpose(axes).reshape(len(X), -1)
+
     def statevectors(self, X: np.ndarray) -> np.ndarray:
         X = np.asarray(X, dtype=float)
+        keys = [x.tobytes() for x in X]
+        missing = {k: i for i, k in enumerate(keys) if k not in self._cache}
+        if missing:
+            for k, state in zip(missing, self._simulate(X[list(missing.values())])):
+                self._cache[k] = state
         out = np.empty((len(X), 2**self.n_qubits), dtype=complex)
-        for i, x in enumerate(X):
-            key = x.tobytes()
-            if key not in self._cache:
-                bound = self.circuit.assign_parameters(self.bandwidth * x)
-                self._cache[key] = Statevector(bound).data
-            out[i] = self._cache[key]
+        for i, k in enumerate(keys):
+            out[i] = self._cache[k]
         return out
 
     def __call__(self, X: np.ndarray, Y: np.ndarray | None = None) -> np.ndarray:

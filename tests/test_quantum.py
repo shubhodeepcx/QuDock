@@ -54,3 +54,19 @@ def test_state_cache_can_be_cleared():
     assert state_cache_size() >= 2
     clear_state_cache()
     assert state_cache_size() == 0
+
+
+def test_fast_simulator_matches_qiskit_up_to_global_phase():
+    X = rng.uniform(0, np.pi, size=(10, 4))
+    for reps in (1, 2, 3):
+        fast = ZZKernel(4, reps=reps, bandwidth=0.37).statevectors(X)
+        for x, state in zip(X, fast):
+            circuit = zz_feature_map(4, reps=reps, entanglement="linear")
+            ref = Statevector(circuit.assign_parameters(0.37 * x)).data
+            assert abs(abs(np.vdot(ref, state)) - 1) < 1e-10
+
+
+def test_other_entanglements_still_work():
+    X = rng.uniform(0, np.pi, size=(5, 3))
+    K = ZZKernel(3, entanglement="full")(X)
+    assert np.allclose(np.diag(K), 1) and np.allclose(K, K.T)
