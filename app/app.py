@@ -75,6 +75,15 @@ def _train(data, n_qubits, n_train, reps, bandwidth):
             "train_idx": train_idx, "test_idx": test_idx}
 
 
+@st.cache_resource(show_spinner="Training the Alzheimer's screener (BACE + BBBP)...")
+def screener():
+    from qudock.data import load_bbbp
+    from qudock.screen import Screener
+
+    return q(lambda: Screener().fit(load_bace(ROOT / "data" / "cache"),
+                                    load_bbbp(ROOT / "data" / "cache")))
+
+
 def mol_image(smi: str, size=(320, 240)):
     return Draw.MolToImage(Chem.MolFromSmiles(smi), size=size)
 
@@ -246,7 +255,25 @@ def main():
                 st.warning(f"Showing the first {LIBRARY_LIMIT} molecules, to keep the hosted app "
                            "inside its memory limit.")
                 parsed = parsed[:LIBRARY_LIMIT]
-        if library and parsed:
+        alzheimers = st.toggle(
+            "Alzheimer's ranking: BACE-1 activity x brain penetration x drug-likeness",
+            help="Uses the hybrid quantum + Tanimoto model with calibrated confidence, a "
+                 "blood-brain barrier model trained on BBBP, and RDKit's QED. Ignores the "
+                 "sidebar settings.")
+        if library and parsed and alzheimers:
+            table = q(screener().score, parsed).sort_values("combined", ascending=False)
+            table.insert(0, "rank", range(1, len(table) + 1))
+            view = table[["rank", "smiles", "combined", "p_active", "activity_call",
+                          "bbb_probability", "qed", "pains", "in_domain"]].round(3)
+            st.dataframe(view, hide_index=True, width="stretch")
+            st.download_button("Download the ranking", table.to_csv(index=False),
+                               "qudock_alzheimers_ranking.csv", "text/csv")
+            st.caption("`combined` is a weighted geometric mean of the activity p-value (counted "
+                       "twice), the brain penetration probability and QED, so a molecule must "
+                       "be reasonable on all three to rise. `activity_call` is the conformal "
+                       "prediction set at 80% confidence. PAINS alerts and molecules outside "
+                       "the training domain are flagged, not removed.")
+        elif library and parsed:
             X_lib = pipe.transform(parsed)
             ranking = pd.DataFrame({
                 "smiles": parsed,
