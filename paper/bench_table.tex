@@ -1,0 +1,19 @@
+\begin{table}[h]
+\centering
+\caption{QuDock-Bench: test ROC-AUC (mean $\pm$ 95\% interval over 3 seeds) on scaffold splits, full training sets.}
+\label{tab:bench}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Model & BACE & BBBP & CLINTOX & Mean rank\\
+\midrule
+Tanimoto SVM & 0.784 $\pm$ 0.008 & 0.826 $\pm$ 0.000 & 0.865 $\pm$ 0.000 & 1.7\\
+Gradient boosting, ECFP4 + descriptors & 0.759 $\pm$ 0.007 & 0.831 $\pm$ 0.006 & 0.850 $\pm$ 0.010 & 2.3\\
+Random Forest, ECFP4 & 0.782 $\pm$ 0.002 & 0.831 $\pm$ 0.001 & 0.842 $\pm$ 0.007 & 2.3\\
+Hybrid ZZ + Tanimoto (quantum) & 0.766 $\pm$ 0.000 & 0.784 $\pm$ 0.000 & 0.691 $\pm$ 0.010 & 4.3\\
+QSVC, PLS (quantum) & 0.754 $\pm$ 0.000 & 0.778 $\pm$ 0.000 & 0.622 $\pm$ 0.021 & 5.7\\
+Projected kernel, Nystr\"om (quantum) & 0.716 $\pm$ 0.004 & 0.795 $\pm$ 0.006 & 0.518 $\pm$ 0.007 & 5.7\\
+Pharmacophore-graph map (quantum) & 0.656 $\pm$ 0.000 & 0.789 $\pm$ 0.008 & 0.579 $\pm$ 0.073 & 6.0\\
+\bottomrule
+\end{tabular}
+\end{table}
