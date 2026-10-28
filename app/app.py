@@ -32,7 +32,7 @@ from qudock.conformal import nearest_neighbour_similarity
 from qudock.data import load_bace, scaffold_split
 from qudock.explain import draw_explanation, explain_molecule
 from qudock.features import FeaturePipeline, morgan_fingerprints
-from qudock.quantum import _STATE_CACHE, QSVC, ZZKernel
+from qudock.quantum import QSVC, ZZKernel, clear_state_cache
 
 RESULTS = ROOT / "results"
 LIBRARY_LIMIT = 200          # keeps one upload inside the hosted app's memory limit
@@ -58,7 +58,7 @@ def train(n_qubits: int, n_train: int, reps: int, bandwidth: float):
 
 def _train(data, n_qubits, n_train, reps, bandwidth):
     # statevectors cached for earlier settings are never reused here
-    _STATE_CACHE.clear()
+    clear_state_cache()
     df, train_idx, test_idx = data
     rng = np.random.default_rng(0)
     if n_train < len(train_idx):
