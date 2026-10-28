@@ -50,8 +50,8 @@ class SampledZZKernel:
 
     def _estimate(self, pairs: list[tuple[np.ndarray, np.ndarray]]) -> np.ndarray:
         circuits = [
-            self.circuit.assign_parameters(
-                {**dict(zip(self._x, self.bandwidth * a)), **dict(zip(self._y, self.bandwidth * b))})
+            self.circuit.assign_parameters({**dict(zip(self._x, self.bandwidth * a)),
+                                            **dict(zip(self._y, self.bandwidth * b))})
             for a, b in pairs
         ]
         result = self.simulator.run(circuits, shots=self.shots).result()
