@@ -333,6 +333,15 @@ def cmd_bench(args):
     print(f"wrote results to {out}/")
 
 
+def cmd_serve(args):
+    """Start the HTTP API (needs the ``api`` extra)."""
+    try:
+        import uvicorn
+    except ImportError:
+        raise SystemExit("install the API extra first: pip install -e .[api]") from None
+    uvicorn.run("qudock.api:app", host=args.host, port=args.port)
+
+
 def cmd_graph(args):
     """Pharmacophore-graph feature map against its classical twins."""
     from qudock.graphmap import run_graph_study
@@ -497,6 +506,11 @@ def main(argv=None):
     p.add_argument("--seeds", type=int, default=3)
     p.add_argument("--out", default="results/bench")
     p.set_defaults(func=cmd_bench)
+
+    p = sub.add_parser("serve", help="HTTP API for screening molecules (pip install .[api])")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8000)
+    p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser("graph",
                        help="feature map built from the pharmacophore graph, vs classical twins")
