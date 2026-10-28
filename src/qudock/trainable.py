@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
 from scipy.optimize import minimize
@@ -29,22 +30,24 @@ from qudock.analysis import kernel_target_alignment
 log = logging.getLogger(__name__)
 
 
-def _apply_phases(state: np.ndarray, qubit: int, n_qubits: int, angles: np.ndarray):
-    """RZ by a per-sample angle: multiply each basis state by exp(-i angle z / 2)."""
-    shape = (len(state), 2**qubit, 2, 2 ** (n_qubits - 1 - qubit))
-    view = state.reshape(shape)
-    phase = np.exp(-0.5j * angles)[:, None, None]
-    view[:, :, 0, :] *= phase
-    view[:, :, 1, :] *= phase.conj()
-    return view.reshape(len(state), -1)
-
-
-def _apply_zz(state: np.ndarray, q0: int, q1: int, n_qubits: int, angles: np.ndarray):
-    """Rotation exp(-i angle Z_q0 Z_q1 / 2), the entangling part of the ZZ map."""
+@lru_cache(maxsize=32)
+def _z_signs(n_qubits: int) -> tuple[np.ndarray, np.ndarray]:
+    """+/-1 eigenvalues of each Z_q and of each neighbouring Z_q Z_q+1, per basis state."""
     bits = np.arange(2**n_qubits)
-    sign = (1 - 2 * ((bits >> (n_qubits - 1 - q0)) & 1)) * \
-           (1 - 2 * ((bits >> (n_qubits - 1 - q1)) & 1))
-    return state * np.exp(-0.5j * angles[:, None] * sign[None, :])
+    z = np.stack([1 - 2 * ((bits >> (n_qubits - 1 - q)) & 1) for q in range(n_qubits)])
+    return z.astype(float), (z[:-1] * z[1:]).astype(float)
+
+
+def _apply_diagonal(state: np.ndarray, n_qubits: int, rz: np.ndarray, zz: np.ndarray):
+    """Every RZ and neighbouring ZZ rotation of a layer at once.
+
+    All of them are diagonal and commute, so their phases simply add up and one
+    complex exponential replaces ``2n - 1`` separate ones. ``rz`` is
+    (n_samples, n_qubits) and ``zz`` is (n_samples, n_qubits - 1).
+    """
+    z, zz_sign = _z_signs(n_qubits)
+    phase = rz @ z + (zz @ zz_sign if n_qubits > 1 else 0.0)
+    return state * np.exp(-0.5j * phase)
 
 
 def _apply_h(state: np.ndarray, qubit: int, n_qubits: int):
@@ -104,11 +107,9 @@ class TrainableKernel:
             if layer:                       # the ZZ map re-applies Hadamards each repetition
                 for q in range(n):
                     state = _apply_h(state, q, n)
-            for q in range(n):
-                state = _apply_phases(state, q, n, 2 * p.encode[layer, q] * X[:, q])
-            for q in range(n - 1):
-                angle = 2 * p.entangle[layer, q] * (np.pi - X[:, q]) * (np.pi - X[:, q + 1])
-                state = _apply_zz(state, q, q + 1, n, angle)
+            rz = 2 * p.encode[layer] * X
+            zz = 2 * p.entangle[layer] * (np.pi - X[:, :-1]) * (np.pi - X[:, 1:])
+            state = _apply_diagonal(state, n, rz, zz)
             for q in range(n):
                 if p.rotate[layer, q]:
                     state = _apply_ry(state, q, n, p.rotate[layer, q])
