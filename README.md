@@ -494,6 +494,31 @@ trade-off a real project makes on purpose: a potent inhibitor that cannot reach 
 not an Alzheimer's drug. Both rankings are written to
 [`results/screen/`](results/screen) so the trade-off can be inspected molecule by molecule.
 
+### QuDock-Bench: one protocol for every model (`qudock bench`)
+
+Quantum ML results are hard to compare because every paper picks its own datasets, splits and
+metrics. QuDock-Bench fixes all of them: scaffold splits of BACE, BBBP and ClinTox, the same
+training molecules and seeds for every model, and the same screening metrics. Any model can be
+plugged in as `module.path:function` ([how](docs/bench.md)).
+
+Test ROC-AUC, mean and 95% interval over 3 seeds, full training sets:
+
+| Model | BACE | BBBP | ClinTox | Mean rank |
+| :-- | --: | --: | --: | --: |
+| Tanimoto SVM | 0.784 ± 0.008 | 0.826 ± 0.000 | 0.865 ± 0.000 | 1.7 |
+| Gradient boosting, ECFP4 + descriptors | 0.759 ± 0.007 | 0.831 ± 0.006 | 0.850 ± 0.010 | 2.3 |
+| Random Forest, ECFP4 | 0.782 ± 0.002 | 0.831 ± 0.001 | 0.842 ± 0.007 | 2.3 |
+| Hybrid ZZ + Tanimoto (quantum) | 0.766 ± 0.000 | 0.784 ± 0.000 | 0.691 ± 0.010 | 4.3 |
+| QSVC on PLS angles (quantum) | 0.754 ± 0.000 | 0.778 ± 0.000 | 0.622 ± 0.021 | 5.7 |
+| Projected kernel, Nystroem (quantum) | 0.716 ± 0.004 | 0.795 ± 0.006 | 0.518 ± 0.007 | 5.7 |
+| Pharmacophore-graph map (quantum) | 0.656 ± 0.000 | 0.789 ± 0.008 | 0.579 ± 0.073 | 6.0 |
+
+Classical models take the top three places on every task. The gap is widest on ClinTox, where
+only 6% of molecules are positive and six compressed angles are not enough to find them. At
+full size the seeds only change cross-validation folds, so some intervals round to zero. The
+Random Forest and gradient-boosting entries use balanced class weights and the SVMs do not;
+the unbalanced Tanimoto SVM still ranks first.
+
 ---
 
 ## 🎬 Demo
