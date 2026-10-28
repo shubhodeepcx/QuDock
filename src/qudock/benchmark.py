@@ -100,17 +100,23 @@ def summarise(results: pd.DataFrame, metric: str = "roc_auc") -> pd.DataFrame:
 
 
 def compare_to_best_classical(results: pd.DataFrame, metric: str = "roc_auc") -> pd.DataFrame:
-    """Paired Wilcoxon test of QSVC vs the best classical model at each size."""
+    """Paired Wilcoxon test of QSVC vs the best classical model at each size.
+
+    Sizes where QSVC or every classical model is missing are skipped.
+    """
     out = []
     for n, group in results.groupby("n_train"):
         wide = group.pivot(index="seed", columns="model", values=metric)
+        if "qsvc" not in wide or wide.shape[1] < 2:
+            continue
         classical = wide.drop(columns="qsvc")
         best = classical.mean().idxmax()
         diff = wide["qsvc"] - wide[best]
         p = wilcoxon(diff).pvalue if len(diff) >= 5 and diff.any() else float("nan")
         out.append({"n_train": n, "best_classical": best, "qsvc": wide["qsvc"].mean(),
                     "classical": wide[best].mean(), "delta": diff.mean(), "p_value": p})
-    return pd.DataFrame(out)
+    return pd.DataFrame(out, columns=["n_train", "best_classical", "qsvc", "classical",
+                                      "delta", "p_value"])
 
 
 def bootstrap_ci(y_true, score, n_boot: int = 1000, seed: int = 0, alpha: float = 0.05):

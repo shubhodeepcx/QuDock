@@ -62,3 +62,10 @@ def test_final_study_runs_end_to_end_on_toy_data():
     assert {"roc_auc", "roc_auc_ci", "ef_1", "bedroc"} <= set(summarise_final(results).columns)
     pairs = compare_pairs(test_scores, [("hybrid_pls", "tanimoto_svm")])
     assert {"delta", "ci_low", "ci_high", "p_value"} <= set(pairs.columns)
+
+
+def test_comparison_skips_sizes_without_both_sides():
+    only_classical = pd.DataFrame({"model": ["svm_rbf", "logreg"], "n_train": [50, 50],
+                                   "seed": [0, 0], "roc_auc": [0.7, 0.6]})
+    out = compare_to_best_classical(only_classical)
+    assert out.empty and "delta" in out.columns
