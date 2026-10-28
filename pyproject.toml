@@ -45,6 +45,7 @@ dev = ["pytest>=8.0", "ruff>=0.5", "fastapi>=0.110", "httpx>=0.27"]
 notebook = ["jupyterlab>=4.0", "pylatexenc>=2.10"]
 app = ["streamlit>=1.40", "pylatexenc>=2.10"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
+docs = ["mkdocs-material>=9.5"]
 
 [project.urls]
 Homepage = "https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout"
