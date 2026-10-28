@@ -1,0 +1,25 @@
+site_name: QuDock
+site_description: Quantum kernels vs classical models for Alzheimer's drug screening (BACE-1)
+repo_url: https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout
+edit_uri: ""
+theme:
+  name: material
+  palette:
+    - scheme: default
+      toggle: {icon: material/brightness-7, name: Dark mode}
+    - scheme: slate
+      toggle: {icon: material/brightness-4, name: Light mode}
+  features: [navigation.sections, content.code.copy]
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.superfences
+  - toc: {permalink: true}
+nav:
+  - Home: index.md
+  - Screening a library: screening.md
+  - QuDock-Bench: bench.md
+  - Quantum kernels: kernels.md
+  - HTTP API: api.md
+  - Command line: cli.md
+  - Reproducibility: reproducibility.md
