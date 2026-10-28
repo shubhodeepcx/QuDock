@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from qudock import __version__
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
 from qudock.conformal import run_confidence_study
 from qudock.data import DATASETS, load_bace, random_split, scaffold_split
@@ -73,8 +74,8 @@ def parse_range(text: str) -> range:
 
 
 def cmd_data(args):
-    df = load_bace()
-    print(f"molecules: {len(df)}  inhibitors: {df['label'].mean():.1%}")
+    df = DATASETS[args.dataset]()
+    print(f"{args.dataset} molecules: {len(df)}  positives: {df['label'].mean():.1%}")
     for name, split in [("scaffold", scaffold_split(df["smiles"], args.test_frac)),
                         ("random", random_split(df["label"], args.test_frac, args.seed))]:
         y = df["label"].values
@@ -324,9 +325,11 @@ def cmd_hardware_svm(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="qudock")
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("data", help="download BACE and show split sizes")
+    p = sub.add_parser("data", help="download a dataset and show split sizes")
+    p.add_argument("--dataset", choices=sorted(DATASETS), default="bace")
     p.add_argument("--test-frac", type=float, default=0.2)
     p.add_argument("--seed", type=int, default=0)
     p.set_defaults(func=cmd_data)
