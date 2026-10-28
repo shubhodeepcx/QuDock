@@ -87,6 +87,7 @@ FINAL_LABELS = {
     "svm_rbf_pca": "SVM-RBF, PCA", "rf_pca": "Random Forest, PCA", "qsvc_pca": "QSVC, PCA",
     "qsvc_pls": "QSVC, PLS + tuned bandwidth", "projected_pls": "Projected quantum kernel, PLS",
     "tanimoto_svm": "Tanimoto SVM", "rf_fingerprint": "Random Forest, fingerprint",
+    "gb_fingerprint": "Gradient boosting, fingerprint + descriptors",
     "svm_rbf_pls": "SVM-RBF, PLS", "rf_pls": "Random Forest, PLS",
     "hybrid_pca": "Hybrid: quantum (PCA) + Tanimoto",
     "hybrid_pls": "Hybrid: quantum (PLS) + Tanimoto",
@@ -101,8 +102,8 @@ def final_study(summary: pd.DataFrame, path):
     """
     panels = [("6 qubit-sized features", ["svm_rbf_pls", "rf_pls", "qsvc_pca", "qsvc_pls",
                                           "projected_pls"]),
-              ("full 2,048-bit fingerprint", ["tanimoto_svm", "rf_fingerprint", "hybrid_pca",
-                                              "hybrid_pls"])]
+              ("full 2,048-bit fingerprint", ["tanimoto_svm", "rf_fingerprint", "gb_fingerprint",
+                                              "hybrid_pca", "hybrid_pls"])]
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), sharey=True)
     for ax, (title, models) in zip(axes, panels):
         for model in models:
