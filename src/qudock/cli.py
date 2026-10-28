@@ -1,6 +1,6 @@
 """Command line entry point: ``qudock data``, ``benchmark``, ``sweep``, ``noise``,
 ``hardware``, ``final``, ``scaling``, ``trainable``, ``confidence``, ``scorecard``,
-``explain``, ``graph``, ``screen``, ``hardware-svm`` and ``reproduce``."""
+``explain``, ``graph``, ``bench``, ``screen``, ``hardware-svm`` and ``reproduce``."""
 
 from __future__ import annotations
 
@@ -317,6 +317,22 @@ def cmd_scaling(args):
     print(f"wrote results to {out}/")
 
 
+def cmd_bench(args):
+    """QuDock-Bench: every model on the same tasks, splits and seeds."""
+    from qudock.bench import TASKS, leaderboard, run_bench
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    tasks = args.tasks.split(",") if args.tasks else list(TASKS)
+    results = run_bench(args.models.split(","), tasks=tasks, sizes=args.sizes,
+                        seeds=range(args.seeds))
+    results.to_csv(out / "bench_runs.csv", index=False)
+    board = leaderboard(results)
+    board.to_csv(out / "leaderboard.csv")
+    print(board.to_string())
+    print(f"wrote results to {out}/")
+
+
 def cmd_graph(args):
     """Pharmacophore-graph feature map against its classical twins."""
     from qudock.graphmap import run_graph_study
@@ -472,6 +488,16 @@ def main(argv=None):
     p.add_argument("--out", default="results/explain")
     p.set_defaults(func=cmd_explain)
 
+    p = sub.add_parser("bench", help="QuDock-Bench: score any model on fixed tasks and splits")
+    p.add_argument("--models", default="rf_fingerprint,gb_fingerprint,tanimoto_svm,qsvc_pls,"
+                   "hybrid_pls,nystroem_projected,graph_quantum",
+                   help="built-in names or module.path:function for your own model")
+    p.add_argument("--tasks", default=None, help="comma-separated, default: all")
+    p.add_argument("--sizes", type=parse_sizes, default="full")
+    p.add_argument("--seeds", type=int, default=3)
+    p.add_argument("--out", default="results/bench")
+    p.set_defaults(func=cmd_bench)
+
     p = sub.add_parser("graph",
                        help="feature map built from the pharmacophore graph, vs classical twins")
     p.add_argument("--sizes", type=parse_sizes, default="100,400,full")
@@ -512,7 +538,7 @@ def main(argv=None):
     if getattr(args, "out", None) and Path(args.out).is_dir():
         config = {k: v for k, v in vars(args).items() if k != "func"}
         provenance.write(Path(args.out), command=["qudock", *(argv or sys.argv[1:])],
-                         config=config, data_files=sorted(DEFAULT_CACHE.glob("*.csv")))
+                         config=config, data_files=sorted(DEFAULT_CACHE.glob("*.csv*")))
 
 
 if __name__ == "__main__":
