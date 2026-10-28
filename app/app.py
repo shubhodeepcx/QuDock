@@ -30,6 +30,7 @@ from qudock.analysis import geometric_difference, kernel_target_alignment
 from qudock.classical import make_classical, scores
 from qudock.conformal import nearest_neighbour_similarity
 from qudock.data import load_bace, scaffold_split
+from qudock.explain import draw_explanation, explain_molecule
 from qudock.features import FeaturePipeline, morgan_fingerprints
 from qudock.quantum import _STATE_CACHE, QSVC, ZZKernel
 
@@ -191,6 +192,25 @@ def main():
                 c.image(mol_image(df["smiles"].values[i], (220, 160)))
                 c.caption(f"overlap {k[j]:.2f} · {'inhibitor' if y[i] else 'non-inhibitor'}")
 
+        st.divider()
+        st.write("**Why did it say that?**")
+        st.write("Every fingerprint bit stands for one substructure. We switch each one off, "
+                 "push the molecule back through the same compression and the same quantum "
+                 "kernel, and see how far the score moves. Atoms that were holding the "
+                 "prediction up are green, atoms arguing the other way are purple.")
+        exp = q(explain_molecule, smi, pipe, models["qsvc"])
+        col_draw, col_bits = st.columns([1, 1])
+        col_draw.image(draw_explanation(exp, (460, 350)))
+        col_draw.caption("Stronger colour and a larger circle mean the atom moved the score more.")
+        col_bits.dataframe(exp.table(6), hide_index=True, width="stretch")
+        col_bits.caption("The six substructures that moved the score most. "
+                         "\"Score change if removed\" is what the quantum model would say "
+                         "without that substructure.")
+        st.caption("We checked these highlights rather than trusting them: removing the top fifth "
+                   "of atoms costs more score than removing as many random atoms on 18 of 24 test "
+                   "molecules (0.56 against 0.38 on average), while breaking fewer bits. Tab 5 has "
+                   "the chart.")
+
         with st.expander("Show the quantum circuit for this molecule"):
             def draw():
                 circ = ZZKernel(n_qubits, reps=reps, bandwidth=bandwidth).circuit
@@ -320,6 +340,17 @@ def main():
         st.caption("The gap closes as the quantum side gets better features, a tuned bandwidth, "
                    "a hybrid kernel and a trained feature map, from -0.031 to -0.002. It has "
                    "not crossed zero on these datasets.")
+
+        st.subheader("Which atoms drove each prediction")
+        st.image(str(RESULTS / "explain" / "explain_study.png"),
+                 caption="Removing the highlighted atoms against removing as many random atoms, "
+                         "on the 24 test molecules the model is most sure about")
+        c1, c2, c3 = st.columns(3)
+        for c, n in zip((c1, c2, c3), (1, 2, 3)):
+            c.image(str(RESULTS / "explain" / f"example_{n}.png"))
+        st.caption("The explanation beats the random control on 18 of 24 molecules, and the atoms "
+                   "it picks break fewer fingerprint bits (26 against 34) while costing more "
+                   "score. Tab 1 runs this live for any molecule you paste.")
 
         st.subheader("Training the feature map itself")
         st.image(str(RESULTS / "trainable" / "trainable_study.png"),

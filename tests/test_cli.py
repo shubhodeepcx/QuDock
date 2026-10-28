@@ -11,7 +11,7 @@ def test_help_lists_commands(capsys):
     out = capsys.readouterr().out
     assert all(cmd in out for cmd in ("data", "benchmark", "sweep", "noise", "final",
                                       "scaling", "trainable", "confidence", "scorecard",
-                                      "hardware-svm"))
+                                      "explain", "hardware-svm"))
 
 
 def test_command_is_required():
@@ -26,4 +26,4 @@ def test_reproduce_runs_every_study_that_makes_a_figure(monkeypatch):
     monkeypatch.setattr(cli, "main", lambda argv: calls.append(argv[0]))
     cli.cmd_reproduce(argparse.Namespace(skip="noise,hardware", verbose=False))
     assert calls == ["benchmark", "sweep", "final", "final", "scaling", "trainable",
-                     "confidence", "scorecard", "hardware-svm"]
+                     "confidence", "explain", "scorecard", "hardware-svm"]
