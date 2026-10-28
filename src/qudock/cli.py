@@ -37,6 +37,41 @@ from qudock.sweep import qubit_sweep as run_sweep
 from qudock.trainable import run_trainable_study, summarise_trainable
 
 
+def parse_sizes(text: str) -> list[int | None]:
+    """'25,50,full' -> [25, 50, None]; 'full' means the whole training set."""
+    sizes = []
+    for part in text.split(","):
+        part = part.strip()
+        if part == "full":
+            sizes.append(None)
+        elif part.isdigit() and int(part) > 0:
+            sizes.append(int(part))
+        else:
+            raise argparse.ArgumentTypeError(
+                f"bad training size {part!r}: use positive integers or 'full'")
+    return sizes
+
+
+def parse_ints(text: str) -> list[int]:
+    """'256,1024' -> [256, 1024]."""
+    try:
+        return [int(part) for part in text.split(",")]
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"expected comma-separated integers, got {text!r}") from None
+
+
+def parse_range(text: str) -> range:
+    """'2-10' -> range(2, 11)."""
+    try:
+        lo, hi = (int(v) for v in text.split("-"))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a range like 2-10, got {text!r}") from None
+    if not 1 <= lo <= hi:
+        raise argparse.ArgumentTypeError(f"range must be increasing and start at 1+, got {text}")
+    return range(lo, hi + 1)
+
+
 def cmd_data(args):
     df = load_bace()
     print(f"molecules: {len(df)}  inhibitors: {df['label'].mean():.1%}")
@@ -48,8 +83,7 @@ def cmd_data(args):
 
 
 def cmd_benchmark(args):
-    sizes = [None if s == "full" else int(s) for s in args.sizes.split(",")]
-    cfg = BenchmarkConfig(n_qubits=args.qubits, sizes=sizes,
+    cfg = BenchmarkConfig(n_qubits=args.qubits, sizes=args.sizes,
                           seeds=list(range(args.seeds)), reps=args.reps)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -68,11 +102,10 @@ def cmd_benchmark(args):
 
 
 def cmd_sweep(args):
-    lo, hi = (int(v) for v in args.qubits.split("-"))
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    perf, diag = run_sweep(range(lo, hi + 1), seeds=range(args.seeds))
+    perf, diag = run_sweep(args.qubits, seeds=range(args.seeds))
     perf.to_csv(out / "qubit_sweep.csv", index=False)
     diag.to_csv(out / "kernel_diagnostics.csv", index=False)
     qubit_sweep(perf, diag, out / "qubit_sweep.png")
@@ -84,7 +117,7 @@ def cmd_sweep(args):
 
 def cmd_noise(args):
     cfg = NoiseConfig(n_qubits=args.qubits, n_train=args.n_train, n_test=args.n_test,
-                      shots=[int(s) for s in args.shots.split(",")],
+                      shots=args.shots,
                       backend=args.backend, seeds=list(range(args.seeds)))
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -124,9 +157,8 @@ PAIRS = [("hybrid_pca", "tanimoto_svm"), ("hybrid_pls", "tanimoto_svm"),
 
 
 def cmd_final(args):
-    sizes = [None if s == "full" else int(s) for s in args.sizes.split(",")]
     models = args.models.split(",") if args.models else None
-    cfg = FinalConfig(n_qubits=args.qubits, sizes=sizes, seeds=list(range(args.seeds)),
+    cfg = FinalConfig(n_qubits=args.qubits, sizes=args.sizes, seeds=list(range(args.seeds)),
                       **({"models": models} if models else {}))
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -261,8 +293,7 @@ def cmd_reproduce(args):
 def cmd_scaling(args):
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    qubits = [int(q) for q in args.qubits.split(",")]
-    results = run_scaling_study(qubits=qubits, n_train=args.n_train, seed=args.seed)
+    results = run_scaling_study(qubits=args.qubits, n_train=args.n_train, seed=args.seed)
     results.to_csv(out / "scaling.csv", index=False)
     scaling_study(results, out / "scaling_study.png")
     print(results[["n_qubits", "kind", "bandwidth", "off_diagonal_spread", "roc_auc"]]
@@ -302,14 +333,14 @@ def main(argv=None):
 
     p = sub.add_parser("benchmark", help="learning curves for QSVC vs classical models")
     p.add_argument("--qubits", type=int, default=6)
-    p.add_argument("--sizes", default="25,50,100,200,400,full")
+    p.add_argument("--sizes", type=parse_sizes, default="25,50,100,200,400,full")
     p.add_argument("--seeds", type=int, default=5)
     p.add_argument("--reps", type=int, default=2)
     p.add_argument("--out", default="results")
     p.set_defaults(func=cmd_benchmark)
 
     p = sub.add_parser("sweep", help="ROC-AUC and kernel geometry across qubit counts")
-    p.add_argument("--qubits", default="2-10", help="range, e.g. 2-10")
+    p.add_argument("--qubits", type=parse_range, default="2-10", help="range, e.g. 2-10")
     p.add_argument("--seeds", type=int, default=3)
     p.add_argument("--out", default="results")
     p.set_defaults(func=cmd_sweep)
@@ -318,7 +349,7 @@ def main(argv=None):
     p.add_argument("--qubits", type=int, default=4)
     p.add_argument("--n-train", type=int, default=80)
     p.add_argument("--n-test", type=int, default=40)
-    p.add_argument("--shots", default="256,1024,4096")
+    p.add_argument("--shots", type=parse_ints, default="256,1024,4096")
     p.add_argument("--backend", default="FakeTorino")
     p.add_argument("--seeds", type=int, default=3)
     p.add_argument("--out", default="results")
@@ -338,7 +369,7 @@ def main(argv=None):
     p.add_argument("--dataset", choices=sorted(DATASETS), default="bace")
     p.add_argument("--models", default=None, help="comma-separated subset of the models")
     p.add_argument("--qubits", type=int, default=6)
-    p.add_argument("--sizes", default="50,100,200,400,full")
+    p.add_argument("--sizes", type=parse_sizes, default="50,100,200,400,full")
     p.add_argument("--seeds", type=int, default=10)
     p.add_argument("--out", default="results/final")
     p.set_defaults(func=cmd_final)
@@ -349,7 +380,7 @@ def main(argv=None):
 
     p = sub.add_parser("scaling",
                        help="kernel concentration and accuracy from 4 to 14 qubits")
-    p.add_argument("--qubits", default="4,6,8,10,12,14")
+    p.add_argument("--qubits", type=parse_ints, default="4,6,8,10,12,14")
     p.add_argument("--n-train", type=int, default=400)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default="results/scaling")
