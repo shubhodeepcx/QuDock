@@ -22,6 +22,7 @@ import numpy as np
 from sklearn.base import clone
 from sklearn.model_selection import train_test_split
 
+from qudock.classical import scores
 from qudock.data import scaffold_split
 
 
@@ -31,6 +32,8 @@ class ConformalClassifier:
 
     def fit(self, X, y, smiles=None):
         X, y = np.asarray(X), np.asarray(y)
+        if not 0 < self.calib_frac < 1:
+            raise ValueError(f"calib_frac must be between 0 and 1, got {self.calib_frac}")
         if smiles is None:
             fit_idx, cal_idx = train_test_split(np.arange(len(y)), test_size=self.calib_frac,
                                                 stratify=y, random_state=self.seed)
@@ -44,10 +47,7 @@ class ConformalClassifier:
         return self
 
     def _score(self, X):
-        m = self.model_
-        if hasattr(m, "decision_function"):
-            return m.decision_function(X)
-        return m.predict_proba(X)[:, 1]
+        return scores(self.model_, X)
 
     def p_values(self, X) -> np.ndarray:
         """(n, 2) array: p-value of the labels inactive and active for each molecule."""
@@ -62,6 +62,8 @@ class ConformalClassifier:
 
     def predict_set(self, X, confidence: float = 0.8) -> np.ndarray:
         """(n, 2) boolean array: is inactive / active in the prediction set."""
+        if not 0 < confidence < 1:
+            raise ValueError(f"confidence must be between 0 and 1, got {confidence}")
         return self.p_values(X) > 1 - confidence
 
     def decision_function(self, X):

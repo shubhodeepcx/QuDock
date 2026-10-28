@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from sklearn.svm import SVC
 
 from qudock.conformal import ConformalClassifier, conformal_report, describe_set
@@ -72,3 +73,19 @@ def test_confidence_study_runs_end_to_end_on_toy_data():
     assert set(sets["model"]) == {"qsvc_pls", "hybrid_pls", "tanimoto_svm"}
     assert sets["coverage"].between(0, 1).all()
     assert len(domain) == 9
+
+
+def test_works_with_models_that_only_give_probabilities():
+    from sklearn.ensemble import RandomForestClassifier
+
+    X, y = _toy()
+    cc = ConformalClassifier(RandomForestClassifier(n_estimators=20, random_state=0)).fit(X, y)
+    assert cc.predict_set(X[:5]).shape == (5, 2)
+
+
+def test_bad_fractions_are_refused():
+    X, y = _toy()
+    with pytest.raises(ValueError, match="calib_frac"):
+        ConformalClassifier(SVC(), calib_frac=1.2).fit(X, y)
+    with pytest.raises(ValueError, match="confidence"):
+        ConformalClassifier(SVC()).fit(X, y).predict_set(X, confidence=90)
