@@ -9,6 +9,8 @@ training molecules only.
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import Descriptors, rdFingerprintGenerator
@@ -17,15 +19,33 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
+def parse(smiles: str):
+    """RDKit molecule for a SMILES string; raises ValueError when it can't be parsed."""
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError(f"could not parse SMILES: {smiles}")
+    return mol
+
+
+@lru_cache(maxsize=8)
+def _generator(radius: int, n_bits: int):
+    return rdFingerprintGenerator.GetMorganGenerator(radius=radius, fpSize=n_bits)
+
+
+# studies refit the pipeline for every seed and training size on the same
+# molecules, so each fingerprint is worth computing once
+@lru_cache(maxsize=20_000)
+def _fingerprint(smiles: str, radius: int, n_bits: int) -> np.ndarray:
+    fp = _generator(radius, n_bits).GetFingerprintAsNumPy(parse(smiles)).astype(np.float32)
+    fp.flags.writeable = False
+    return fp
+
+
 def morgan_fingerprints(smiles, radius: int = 2, n_bits: int = 2048) -> np.ndarray:
     """ECFP fingerprints (radius 2 = ECFP4) as a dense 0/1 matrix."""
-    gen = rdFingerprintGenerator.GetMorganGenerator(radius=radius, fpSize=n_bits)
     fps = np.zeros((len(smiles), n_bits), dtype=np.float32)
     for i, s in enumerate(smiles):
-        mol = Chem.MolFromSmiles(s)
-        if mol is None:
-            raise ValueError(f"could not parse SMILES: {s}")
-        fps[i] = gen.GetFingerprintAsNumPy(mol)
+        fps[i] = _fingerprint(s, radius, n_bits)
     return fps
 
 
@@ -46,10 +66,7 @@ DESCRIPTORS = {
 
 def descriptors(smiles) -> np.ndarray:
     """RDKit descriptors in ``DESCRIPTORS`` as a float matrix."""
-    mols = [Chem.MolFromSmiles(s) for s in smiles]
-    for s, m in zip(smiles, mols):
-        if m is None:
-            raise ValueError(f"could not parse SMILES: {s}")
+    mols = [parse(s) for s in smiles]
     return np.array([[f(m) for f in DESCRIPTORS.values()] for m in mols], dtype=np.float64)
 
 
