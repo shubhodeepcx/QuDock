@@ -44,7 +44,31 @@ class HardwareSVMConfig:
     precision: float = 0.03            # target standard error per expectation value
     backend: str | None = None         # None = least busy device
     max_execution_time: int = 300      # hard cap on quantum seconds billed
+    mitigation: str = "readout"        # "none", "readout" (TREX) or "zne" (TREX + ZNE)
     seed: int = 0
+
+
+MITIGATION_LEVELS = {"none": 0, "readout": 1, "zne": 2}
+
+
+def configure_estimator(options, mitigation: str, max_execution_time: int | None):
+    """Set an EstimatorV2's options for a mitigation level; the time cap always applies.
+
+    ``readout`` is resilience level 1 (twirled readout error extinction), ``zne``
+    is level 2, which adds zero-noise extrapolation on top at roughly three times
+    the shots. Every level except ``none`` also turns on dynamical decoupling and
+    gate twirling, which cost no extra shots.
+    """
+    if mitigation not in MITIGATION_LEVELS:
+        raise ValueError(f"mitigation must be one of {sorted(MITIGATION_LEVELS)}, "
+                         f"got {mitigation!r}")
+    if max_execution_time:
+        options.max_execution_time = max_execution_time
+    options.resilience_level = MITIGATION_LEVELS[mitigation]
+    enable = mitigation != "none"
+    options.dynamical_decoupling.enable = enable
+    options.twirling.enable_gates = enable
+    return options
 
 
 def prepare(cfg: HardwareSVMConfig, df: pd.DataFrame | None = None):
@@ -64,7 +88,11 @@ def exact_features(X: np.ndarray, cfg: HardwareSVMConfig) -> np.ndarray:
 
 
 def measure_features(X: np.ndarray, cfg: HardwareSVMConfig, backend, mitigate: bool = True):
-    """Single-qubit Pauli expectations of every molecule's state, from one Estimator job."""
+    """Single-qubit Pauli expectations of every molecule's state, from one Estimator job.
+
+    ``mitigate=False`` (used for local fake backends) switches every mitigation
+    off regardless of ``cfg.mitigation``.
+    """
     from qiskit_ibm_runtime import EstimatorV2
 
     circuit = zz_feature_map(cfg.n_qubits, reps=cfg.reps, entanglement="linear")
@@ -75,11 +103,9 @@ def measure_features(X: np.ndarray, cfg: HardwareSVMConfig, backend, mitigate: b
     observables = [[op.apply_layout(isa.layout)] for op in _pauli_ops(cfg.n_qubits)]
     estimator = EstimatorV2(mode=backend)
     estimator.options.default_precision = cfg.precision
-    if mitigate:
-        estimator.options.resilience_level = 1          # readout error mitigation (TREX)
-        estimator.options.dynamical_decoupling.enable = True
-        estimator.options.twirling.enable_gates = True
-        estimator.options.max_execution_time = cfg.max_execution_time
+    mitigation = cfg.mitigation if mitigate else "none"
+    configure_estimator(estimator.options, mitigation,
+                        cfg.max_execution_time if mitigate else None)
     params = cfg.bandwidth * np.asarray(X)
     t0 = time.time()
     job = estimator.run([(isa, observables, params)])
@@ -90,7 +116,7 @@ def measure_features(X: np.ndarray, cfg: HardwareSVMConfig, backend, mitigate: b
             "n_observables": len(observables), "precision": cfg.precision,
             "two_qubit_depth": isa.depth(lambda g: g.operation.num_qubits == 2),
             "quantum_seconds": usage, "wall_seconds": round(time.time() - t0, 1),
-            "mitigation": mitigate, "date": time.strftime("%Y-%m-%d %H:%M %Z")}
+            "mitigation": mitigation, "date": time.strftime("%Y-%m-%d %H:%M %Z")}
     return evs.T, info
 
 

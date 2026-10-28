@@ -359,7 +359,8 @@ def cmd_hardware_svm(args):
     from qudock.hardware_svm import HardwareSVMConfig, reanalyse, run_hardware_svm, save
 
     out = Path(args.out)
-    cfg = HardwareSVMConfig(n_train=args.n_train, n_test=args.n_test, backend=args.backend)
+    cfg = HardwareSVMConfig(n_train=args.n_train, n_test=args.n_test, backend=args.backend,
+                            mitigation=args.mitigation)
     if args.reanalyse and not (out / "hardware_svm_features.npz").exists():
         raise SystemExit(f"nothing to reanalyse: {out}/hardware_svm_features.npz is missing")
     if args.reanalyse:
@@ -496,6 +497,8 @@ def main(argv=None):
     p.add_argument("--backend", default=None, help="device name, default: least busy")
     p.add_argument("--n-train", type=int, default=120)
     p.add_argument("--n-test", type=int, default=60)
+    p.add_argument("--mitigation", choices=["none", "readout", "zne"], default="readout",
+                   help="error mitigation on the device; zne costs about 3x the shots")
     p.add_argument("--fake", action="store_true", help="run on FakeTorino locally instead")
     p.add_argument("--reanalyse", action="store_true",
                    help="redo the analysis from saved device features, no device needed")

@@ -76,3 +76,24 @@ def test_hardware_svm_analysis_from_saved_features():
     assert rows.loc[0, "feature_error"] == 0
     assert 0 < rows.loc[1, "feature_error"] < 0.05
     assert rows["roc_auc"].between(0, 1).all()
+
+
+def test_estimator_mitigation_levels():
+    from types import SimpleNamespace
+
+    import pytest
+
+    from qudock.hardware_svm import configure_estimator
+
+    def options():
+        return SimpleNamespace(dynamical_decoupling=SimpleNamespace(enable=None),
+                               twirling=SimpleNamespace(enable_gates=None))
+
+    zne = configure_estimator(options(), "zne", 120)
+    assert zne.resilience_level == 2 and zne.max_execution_time == 120
+    assert zne.dynamical_decoupling.enable and zne.twirling.enable_gates
+    off = configure_estimator(options(), "none", 60)
+    assert off.resilience_level == 0 and off.max_execution_time == 60   # cap kept without it
+    assert not off.dynamical_decoupling.enable
+    with pytest.raises(ValueError, match="mitigation"):
+        configure_estimator(options(), "magic", None)
