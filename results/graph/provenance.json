@@ -1,0 +1,44 @@
+{
+  "qudock_version": "0.1.0",
+  "command": [
+    "qudock",
+    "graph",
+    "--out",
+    "results/graph"
+  ],
+  "config": {
+    "verbose": false,
+    "command": "graph",
+    "sizes": [
+      100,
+      400,
+      null
+    ],
+    "seeds": 3,
+    "reps": 2,
+    "out": "results/graph"
+  },
+  "git": {
+    "commit": "4c824a600714ba6500ad1e2fdd4c5b53a9926ff5",
+    "dirty": true
+  },
+  "python": "3.13.17",
+  "platform": "Linux-6.18.44-fc-v180-x86_64-with-glibc2.39",
+  "packages": {
+    "qiskit": "2.6.1",
+    "qiskit-aer": "0.18.2",
+    "qiskit-machine-learning": "0.9.1",
+    "qiskit-ibm-runtime": "0.51.0",
+    "rdkit": "2026.9.1",
+    "scikit-learn": "1.9.1",
+    "numpy": "2.5.4",
+    "pandas": "3.1.0",
+    "scipy": "1.18.1"
+  },
+  "data_files": {
+    "BBBP.csv": "d07a38487aeac5cee5508413e468043ef3097451d2a112701c2d60be9ec6b662",
+    "bace.csv": "f3fb9ce90bada3e2bd6148b0df13f8f8145a357bf87df0dd5b391ede974fc737",
+    "clintox.csv.gz": "7324a84a180ad9068d3847677c85d58e8432e82b3ae6ac95cf0e98b3a58d9697"
+  },
+  "created": "2026-10-28T11:54:18+0000"
+}
