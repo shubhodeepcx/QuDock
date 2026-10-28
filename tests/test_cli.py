@@ -19,11 +19,13 @@ def test_command_is_required():
         main([])
 
 
-def test_reproduce_runs_every_study_that_makes_a_figure(monkeypatch):
+def test_reproduce_runs_every_study_that_makes_a_figure(monkeypatch, tmp_path):
     from qudock import cli
 
     calls = []
     monkeypatch.setattr(cli, "main", lambda argv: calls.append(argv[0]))
+    (tmp_path / "saved.npz").touch()
+    monkeypatch.setitem(cli.SAVED_DEVICE_DATA, "hardware-svm", tmp_path / "saved.npz")
     cli.cmd_reproduce(argparse.Namespace(skip="noise,hardware", verbose=False))
     assert calls == ["benchmark", "sweep", "final", "final", "scaling", "trainable",
                      "confidence", "explain", "scorecard", "hardware-svm"]
@@ -64,3 +66,20 @@ def test_data_command_reports_the_chosen_dataset(monkeypatch, capsys):
     main(["data", "--dataset", "bbbp"])
     out = capsys.readouterr().out
     assert "bbbp molecules: 10" in out and "scaffold" in out
+
+
+def test_reproduce_skips_reanalysis_without_saved_device_data(monkeypatch, tmp_path, capsys):
+    from qudock import cli
+
+    calls = []
+    monkeypatch.setattr(cli, "main", lambda argv: calls.append(argv[0]))
+    monkeypatch.setitem(cli.SAVED_DEVICE_DATA, "hardware-svm", tmp_path / "missing.npz")
+    skip = "benchmark,sweep,noise,final,scaling,trainable,confidence,explain,scorecard,hardware"
+    cli.cmd_reproduce(argparse.Namespace(skip=skip, verbose=False))
+    assert calls == []
+    assert "skipping qudock hardware-svm" in capsys.readouterr().out
+
+
+def test_reanalyse_without_saved_data_explains_itself(tmp_path):
+    with pytest.raises(SystemExit, match="nothing to reanalyse"):
+        main(["hardware-svm", "--reanalyse", "--out", str(tmp_path)])

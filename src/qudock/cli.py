@@ -136,6 +136,8 @@ def cmd_noise(args):
 def cmd_hardware(args):
     out = Path(args.out)
     cfg = HardwareConfig(n_molecules=args.molecules, shots=args.shots, backend=args.backend)
+    if args.reanalyse and not (out / "hardware_kernels.npz").exists():
+        raise SystemExit(f"nothing to reanalyse: {out}/hardware_kernels.npz is missing")
     if args.reanalyse:
         rows, kernels, info = reanalyse(out, cfg)
     else:
@@ -281,11 +283,21 @@ REPRODUCE = [
     ("hardware-svm", ["--reanalyse"]),
 ]
 
+# saved device data each reanalysis needs; without it the step is skipped, not failed
+SAVED_DEVICE_DATA = {
+    "hardware": Path("results/hardware/hardware_kernels.npz"),
+    "hardware-svm": Path("results/hardware_svm/hardware_svm_features.npz"),
+}
+
 
 def cmd_reproduce(args):
     """Regenerate every table and figure a reader sees, from saved data only."""
     for name, extra in REPRODUCE:
         if args.skip and name in args.skip.split(","):
+            continue
+        saved = SAVED_DEVICE_DATA.get(name)
+        if "--reanalyse" in extra and saved is not None and not saved.exists():
+            print(f"\n=== skipping qudock {name}: no saved device data at {saved}")
             continue
         print(f"\n=== qudock {name} {' '.join(extra)}")
         main([*(["--verbose"] if args.verbose else []), name, *extra])
@@ -307,6 +319,8 @@ def cmd_hardware_svm(args):
 
     out = Path(args.out)
     cfg = HardwareSVMConfig(n_train=args.n_train, n_test=args.n_test, backend=args.backend)
+    if args.reanalyse and not (out / "hardware_svm_features.npz").exists():
+        raise SystemExit(f"nothing to reanalyse: {out}/hardware_svm_features.npz is missing")
     if args.reanalyse:
         rows = reanalyse(out, cfg)
         rows.to_csv(out / "hardware_svm.csv", index=False)
