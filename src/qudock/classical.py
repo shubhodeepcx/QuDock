@@ -29,6 +29,8 @@ def make_classical(name: str, seed: int = 0, n_train: int | None = None) -> Grid
     ``n_train`` lets small training sets use fewer folds so every fold still
     has both classes.
     """
+    if name not in GRIDS:
+        raise ValueError(f"unknown classical model {name!r}, pick one of {sorted(GRIDS)}")
     build, grid = GRIDS[name]
     folds = 5 if n_train is None or n_train >= 100 else 3
     cv = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
