@@ -1,11 +1,32 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "qudock"
 dynamic = ["version"]
 description = "Quantum kernels vs classical models for BACE-1 inhibitor screening"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Shubhodeep Chatterjee"},
+    {name = "Srijita Banerjee"},
+    {name = "Rounak Pal"},
+]
+keywords = ["quantum machine learning", "quantum kernels", "qiskit", "drug discovery",
+            "cheminformatics", "alzheimer's", "bace-1", "virtual screening"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 requires-python = ">=3.10"
 dependencies = [
     "qiskit>=2.0",
@@ -24,6 +45,11 @@ dev = ["pytest>=8.0", "ruff>=0.5", "fastapi>=0.110", "httpx>=0.27"]
 notebook = ["jupyterlab>=4.0", "pylatexenc>=2.10"]
 app = ["streamlit>=1.40", "pylatexenc>=2.10"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
+
+[project.urls]
+Homepage = "https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout"
+Demo = "https://qudock-blackout.streamlit.app/"
+Issues = "https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout/issues"
 
 [project.scripts]
 qudock = "qudock.cli:main"
