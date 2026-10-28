@@ -83,3 +83,19 @@ def test_paired_bootstrap_detects_a_clear_difference():
     bad = rng.normal(0, 1, 100)
     out = paired_bootstrap(y, good, bad, n_boot=300)
     assert out["delta"] > 0.3 and out["ci_low"] > 0 and out["p_value"] < 0.05
+
+
+def test_scaling_study_reports_spread_and_accuracy():
+    import pandas as pd
+
+    from qudock.scaling import off_diagonal_spread, run_scaling_study
+
+    assert off_diagonal_spread(np.eye(3)) == 0
+    scaffolds = ["c1ccccc1", "C1CCNCC1", "c1ccncc1", "C1CCOC1"]
+    subs = ["O", "N", "C", "Cl", "F", "Br"]
+    toy = pd.DataFrame({"smiles": [s + sub for s in scaffolds for sub in subs],
+                        "label": [1, 0] * (len(scaffolds) * len(subs) // 2)})
+    out = run_scaling_study(qubits=(2, 3), n_train=18, df=toy)
+    assert len(out) == 6
+    assert out["roc_auc"].between(0, 1).all()
+    assert out["off_diagonal_spread"].gt(0).all()

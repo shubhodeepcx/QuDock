@@ -121,3 +121,59 @@ def final_study(summary: pd.DataFrame, path):
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def confidence_study(sets: pd.DataFrame, domain: pd.DataFrame, path):
+    """Left: promised vs measured coverage. Right: ROC-AUC against similarity to the training set."""
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+    axes[0].plot([0.65, 0.95], [0.65, 0.95], color="0.4", ls=":", label="promised")
+    for model, g in sets.groupby("model", sort=False):
+        g = g.sort_values("confidence")
+        style = {"lw": 2.4} if model in QUANTUM else {"lw": 1.4, "ls": "--", "alpha": 0.9}
+        axes[0].plot(g["confidence"], g["coverage"], marker="o",
+                     label=FINAL_LABELS.get(model, model), **style)
+    axes[0].set_xlabel("confidence asked for")
+    axes[0].set_ylabel("molecules whose true label is in the set")
+    axes[0].set_title("Calibration under a scaffold split")
+
+    width = 0.26
+    centres = domain.groupby(["similarity_from", "similarity_to"], sort=True).ngroup().unique()
+    for i, (model, g) in enumerate(domain.groupby("model", sort=False)):
+        g = g.sort_values("similarity_from")
+        axes[1].bar(centres + (i - 1) * width, g["roc_auc"], width,
+                    label=FINAL_LABELS.get(model, model))
+    labels = [f"{lo:.2f} to {hi:.2f}" for lo, hi in
+              domain.drop_duplicates("similarity_from").sort_values("similarity_from")
+              [["similarity_from", "similarity_to"]].values]
+    axes[1].set_xticks(centres, labels)
+    axes[1].set_ylim(0.5, 0.85)
+    axes[1].set_xlabel("Tanimoto similarity to the nearest training molecule")
+    axes[1].set_ylabel("test ROC-AUC")
+    axes[1].set_title("Accuracy against how new the chemistry is")
+    for ax in axes:
+        ax.grid(alpha=0.3)
+        ax.legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def scaling_study(results: pd.DataFrame, path):
+    """Left: the kernel's off-diagonal spread as qubits grow. Right: what it costs in ROC-AUC."""
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+    for kind, g in results.groupby("kind", sort=False):
+        g = g.sort_values("n_qubits")
+        axes[0].plot(g["n_qubits"], g["off_diagonal_spread"], marker="o", label=kind)
+        axes[1].plot(g["n_qubits"], g["roc_auc"], marker="o", label=kind)
+    axes[0].set_yscale("log")
+    axes[0].set_ylabel("spread of off-diagonal kernel values")
+    axes[0].set_title("Kernel concentration")
+    axes[1].set_ylabel("test ROC-AUC (scaffold split)")
+    axes[1].set_title("What concentration costs")
+    for ax in axes:
+        ax.set_xlabel("qubits")
+        ax.grid(alpha=0.3)
+        ax.legend(frameon=False, fontsize=9)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)

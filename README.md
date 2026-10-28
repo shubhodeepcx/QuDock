@@ -308,6 +308,73 @@ What we added:
 - The projected kernel is slightly weaker than the fidelity kernel here, but it is the one we
   can run as a full classifier on hardware (`qudock hardware-svm`).
 
+### Does it survive more qubits? (`qudock scaling`)
+
+The judges asked how we keep classes separable as qubits grow, since quantum kernels concentrate:
+every pair of molecules looks equally distant, and the SVM has nothing left to learn from. We
+measured it directly from 4 to 14 qubits on the same 400 molecules, reporting the spread
+(standard deviation) of the off-diagonal kernel values next to test ROC-AUC.
+
+![Scaling study](results/scaling/scaling_study.png)
+
+| Qubits | Spread, fixed bandwidth | Spread, tuned | ROC-AUC, fixed | ROC-AUC, tuned | ROC-AUC, projected |
+| --: | --: | --: | --: | --: | --: |
+| 4 | 0.117 | 0.273 | 0.589 | 0.681 | 0.584 |
+| 6 | 0.054 | 0.197 | 0.584 | 0.679 | 0.646 |
+| 8 | 0.028 | 0.144 | 0.606 | 0.661 | 0.655 |
+| 10 | 0.018 | 0.117 | 0.633 | 0.666 | 0.643 |
+| 12 | 0.012 | 0.089 | 0.638 | 0.663 | 0.629 |
+| 14 | 0.010 | 0.173 | 0.636 | 0.671 | 0.634 |
+
+At a fixed bandwidth the kernel does concentrate: the spread falls by a factor of 11 between 4
+and 14 qubits. Tuning the bandwidth by kernel-target alignment keeps it 9 to 17 times larger,
+and that shows up as 0.03 to 0.09 more ROC-AUC at every width. The alignment picks 0.2 at 4 to
+12 qubits and 0.1 at 14, which is the adaptive scaling the question was about. The projected
+kernel concentrates as much as the plain one by this measure, because it is the RBF on top, not
+the overlap, that keeps it usable.
+
+### Does it hold on another task? (`qudock final --dataset bbbp`)
+
+A method tuned until it works on one dataset proves little, so we ran the same pipeline,
+unchanged, on MoleculeNet BBBP: can a molecule cross the blood-brain barrier, which every
+Alzheimer's drug has to do. 1,965 molecules, the same scaffold split, 5 seeds.
+
+![BBBP study](results/bbbp/bbbp_study.png)
+
+| Training molecules | QSVC, PLS | SVM-RBF, PLS | RF, PLS | Hybrid, PCA | Tanimoto SVM | RF, fingerprint |
+| --: | --: | --: | --: | --: | --: | --: |
+| 100 | 0.740 | 0.754 | 0.729 | 0.768 | 0.770 | 0.773 |
+| 400 | 0.768 | 0.766 | 0.785 | 0.810 | 0.811 | 0.809 |
+| 1,572 | 0.769 | 0.781 | 0.800 | 0.827 | 0.826 | 0.829 |
+
+The BACE story repeats: the hybrid kernel is level with the best classical model (0.827 against
+0.826 and 0.829, differences of 0.002 to 0.004 with p = 0.68 and 0.72, so no measurable gap),
+while the quantum kernel alone stays behind Random Forest on the same features (-0.027,
+p = 0.02). Two datasets, same conclusion.
+
+### How much can you trust one prediction? (`qudock confidence`)
+
+A screening model is only useful if it says when it does not know. We added conformal
+prediction, which turns a score into a set of labels: {inhibitor}, {not an inhibitor}, both
+("don't know") or neither. Its guarantee assumes new molecules resemble the calibration ones,
+so we calibrate on the rarest training scaffolds, the way the test set was built, and then
+measure whether the promise holds.
+
+![Confidence study](results/confidence/confidence_study.png)
+
+| Model | Asked for 90% | Measured | Single-label predictions | Right when it commits |
+| :-- | --: | --: | --: | --: |
+| QSVC, PLS | 0.90 | 0.657 | 0.911 | 0.721 |
+| Hybrid, PLS | 0.90 | 0.680 | 0.957 | 0.710 |
+| Tanimoto SVM | 0.90 | 0.858 | 0.571 | 0.751 |
+
+Asking for 90% confidence really delivers 66 to 86% under a scaffold split. That is not a bug in
+the method: it is what happens when test molecules are genuinely new chemistry, and it is worth
+reporting, because a confidence number taken from a random split would have looked fine and
+been wrong. Accuracy tracks the same thing: on the third of test molecules least similar to the
+training set, every model loses 0.05 to 0.10 ROC-AUC. The app shows this similarity for each
+molecule you screen.
+
 ---
 
 ## 🎬 Demo
@@ -357,7 +424,7 @@ vtu-hc-blackout/
 ├── notebooks/
 │   └── demo.ipynb         # End-to-end walkthrough of the pipeline and results
 ├── src/qudock/
-│   ├── data.py            # BACE download, cleaning, scaffold split
+│   ├── data.py            # BACE and BBBP download, cleaning, scaffold split
 │   ├── features.py        # ECFP fingerprints (+ descriptors) -> PCA or PLS -> qubit angles
 │   ├── classical.py       # SVM-RBF, Random Forest, Logistic Regression
 │   ├── quantum.py         # ZZ fidelity kernel and QSVC
@@ -369,6 +436,8 @@ vtu-hc-blackout/
 │   ├── hardware.py        # Kernel on a real IBM device
 │   ├── kernels.py         # Tanimoto, projected and hybrid kernels, bandwidth tuning
 │   ├── screening.py       # Enrichment, BEDROC, PR-AUC, paired bootstrap
+│   ├── conformal.py       # Calibrated confidence and the applicability domain
+│   ├── scaling.py         # Kernel concentration and accuracy from 4 to 14 qubits
 │   ├── final_study.py     # Final-round study
 │   ├── hardware_svm.py    # Projected-kernel SVM trained and tested on a real device
 │   ├── plots.py           # Figures
@@ -377,6 +446,9 @@ vtu-hc-blackout/
 ├── results/full/          # Benchmark, sweep and noise study outputs
 ├── results/hardware/      # Real-device kernel run
 ├── results/final/         # Final-round study outputs
+├── results/scaling/       # Kernel concentration study
+├── results/confidence/    # Conformal prediction and applicability domain
+├── results/bbbp/          # The same pipeline on a second dataset
 ├── data/                  # Downloaded dataset cache (not committed)
 └── tests/                 # Unit tests
 ```
@@ -427,6 +499,10 @@ qudock noise --out results/full      # shot + device noise study, ~30 min
 qudock hardware --reanalyse          # redo the real-device comparison from saved results
 qudock hardware                      # rerun on a real IBM device (needs a saved IBM account)
 qudock final --out results/final     # final-round study: PLS, tuned bandwidth, hybrid, under an hour
+qudock final --dataset bbbp          # the same pipeline on blood-brain barrier data
+qudock scaling --out results/scaling # kernel concentration from 4 to 14 qubits, ~10 min
+qudock confidence                    # conformal prediction sets and accuracy by similarity
+qudock reproduce                     # rerun every study that makes a table or figure
 qudock hardware-svm --fake           # projected-kernel SVM on a simulated IBM device
 qudock hardware-svm                  # same on a real IBM device, capped at 5 min of quantum time
 ```

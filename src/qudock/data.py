@@ -13,21 +13,28 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem.Scaffolds import MurckoScaffold
 from sklearn.model_selection import train_test_split
 
-BACE_URL = "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/bace.csv"
+MOLECULENET = "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets"
+BACE_URL = f"{MOLECULENET}/bace.csv"
+# second task: does the molecule cross the blood-brain barrier, which any
+# Alzheimer's drug has to do, so the same pipeline can be checked on it
+BBBP_URL = f"{MOLECULENET}/BBBP.csv"
 DEFAULT_CACHE = Path("data/cache")
 
 log = logging.getLogger(__name__)
 RDLogger.DisableLog("rdApp.*")
 
 
-def download_bace(cache_dir: Path | str = DEFAULT_CACHE) -> Path:
-    """Download bace.csv once and return its local path."""
-    path = Path(cache_dir) / "bace.csv"
+def download(url: str, path: Path) -> Path:
+    """Download a dataset once and return its local path."""
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        log.info("downloading %s", BACE_URL)
-        urllib.request.urlretrieve(BACE_URL, path)
+        log.info("downloading %s", url)
+        urllib.request.urlretrieve(url, path)
     return path
+
+
+def download_bace(cache_dir: Path | str = DEFAULT_CACHE) -> Path:
+    return download(BACE_URL, Path(cache_dir) / "bace.csv")
 
 
 def canonical_smiles(smiles: str) -> str | None:
@@ -67,6 +74,15 @@ def clean(df: pd.DataFrame, smiles_col: str = "mol", label_col: str = "Class") -
 def load_bace(cache_dir: Path | str = DEFAULT_CACHE) -> pd.DataFrame:
     """Return the cleaned BACE dataset (columns ``smiles``, ``label``)."""
     return clean(pd.read_csv(download_bace(cache_dir)))
+
+
+def load_bbbp(cache_dir: Path | str = DEFAULT_CACHE) -> pd.DataFrame:
+    """Return the cleaned BBBP dataset (blood-brain barrier penetration)."""
+    return clean(pd.read_csv(download(BBBP_URL, Path(cache_dir) / "BBBP.csv")),
+                 smiles_col="smiles", label_col="p_np")
+
+
+DATASETS = {"bace": load_bace, "bbbp": load_bbbp}
 
 
 def murcko_scaffold(smiles: str) -> str:
