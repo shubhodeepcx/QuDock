@@ -1,11 +1,14 @@
 """Command line entry point: ``qudock data``, ``benchmark``, ``sweep``, ``noise``,
-``hardware``, ``final``, ``scaling``, ``confidence``, ``hardware-svm`` and ``reproduce``."""
+``hardware``, ``final``, ``scaling``, ``trainable``, ``confidence``, ``scorecard``,
+``hardware-svm`` and ``reproduce``."""
 
 from __future__ import annotations
 
 import argparse
 import logging
 from pathlib import Path
+
+import pandas as pd
 
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
 from qudock.conformal import run_confidence_study
@@ -20,9 +23,15 @@ from qudock.plots import (
     noise_study,
     qubit_sweep,
     scaling_study,
+    trainable_study,
+)
+from qudock.plots import (
+    scorecard as plot_scorecard,
 )
 from qudock.scaling import run_scaling_study
+from qudock.scorecard import build_scorecard, verdicts
 from qudock.sweep import qubit_sweep as run_sweep
+from qudock.trainable import run_trainable_study, summarise_trainable
 
 
 def cmd_data(args):
@@ -134,6 +143,40 @@ def cmd_final(args):
     print(f"wrote results to {out}/")
 
 
+def _read(path: Path):
+    return pd.read_csv(path) if path.exists() else None
+
+
+def cmd_scorecard(args):
+    """One chart of every measured setting, built from the result files."""
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    final = _read(Path("results/final/final_runs.csv"))
+    if final is None:
+        raise SystemExit("run `qudock final` first: results/final/final_runs.csv is missing")
+    table = build_scorecard(final, _read(Path("results/bbbp/final_runs.csv")),
+                            _read(Path("results/scaling/scaling.csv")),
+                            _read(Path("results/trainable/trainable_runs.csv")))
+    table["verdict"] = verdicts(table)
+    table.to_csv(out / "scorecard.csv", index=False)
+    plot_scorecard(table, table["verdict"], out / "scorecard.png")
+    print(table.round(3).to_string(index=False))
+    print(f"wrote results to {out}/")
+
+
+def cmd_trainable(args):
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    runs = run_trainable_study(seeds=range(args.seeds), n_qubits=args.qubits)
+    runs.to_csv(out / "trainable_runs.csv", index=False)
+    summary = summarise_trainable(runs)
+    summary.to_csv(out / "trainable_summary.csv", index=False)
+    trainable_study(summary, out / "trainable_study.png")
+    print(summary.pivot(index="n_train", columns="feature_map",
+                        values=["roc_auc", "alignment"]).round(3))
+    print(f"wrote results to {out}/")
+
+
 def cmd_confidence(args):
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -156,7 +199,9 @@ REPRODUCE = [
     ("final", ["--dataset", "bbbp", "--sizes", "100,400,full", "--seeds", "5",
                "--models", BBBP_MODELS, "--out", "results/bbbp"]),
     ("scaling", ["--out", "results/scaling"]),
+    ("trainable", ["--out", "results/trainable"]),
     ("confidence", ["--out", "results/confidence"]),
+    ("scorecard", ["--out", "results/scorecard"]),
     ("hardware", ["--reanalyse"]),          # saved device data, no quantum time needed
     ("hardware-svm", ["--reanalyse"]),
 ]
@@ -267,6 +312,17 @@ def main(argv=None):
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default="results/scaling")
     p.set_defaults(func=cmd_scaling)
+
+    p = sub.add_parser("scorecard", help="one chart of every setting we measured")
+    p.add_argument("--out", default="results/scorecard")
+    p.set_defaults(func=cmd_scorecard)
+
+    p = sub.add_parser("trainable",
+                       help="train the feature map's own parameters by kernel alignment")
+    p.add_argument("--qubits", type=int, default=6)
+    p.add_argument("--seeds", type=int, default=5)
+    p.add_argument("--out", default="results/trainable")
+    p.set_defaults(func=cmd_trainable)
 
     p = sub.add_parser("confidence",
                        help="conformal prediction sets and accuracy by chemical similarity")
