@@ -24,7 +24,7 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from qudock.data import load_bace, scaffold_split
 from qudock.features import FeaturePipeline, morgan_fingerprints
 from qudock.kernels import KernelSVM, ProjectedKernel, stack, tune_bandwidth
-from qudock.quantum import _STATE_CACHE, ZZKernel
+from qudock.quantum import ZZKernel, clear_state_cache
 from qudock.screening import screening_metrics
 
 log = logging.getLogger(__name__)
@@ -74,5 +74,5 @@ def run_scaling_study(qubits=(4, 6, 8, 10, 12, 14), n_train: int = 400, seed: in
                          **screening_metrics(y_te, model.decision_function(X_te))})
             log.info("%d qubits, %s: spread %.4f auc %.3f", n_qubits, kind, spread,
                      rows[-1]["roc_auc"])
-        _STATE_CACHE.clear()        # statevectors of this width are never reused
+        clear_state_cache()         # statevectors of this width are never reused
     return pd.DataFrame(rows)

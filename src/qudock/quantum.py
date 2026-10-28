@@ -19,6 +19,16 @@ from sklearn.svm import SVC
 _STATE_CACHE: dict[tuple, dict[bytes, np.ndarray]] = {}
 
 
+def clear_state_cache() -> None:
+    """Forget every cached statevector, e.g. before switching to a new qubit count."""
+    _STATE_CACHE.clear()
+
+
+def state_cache_size() -> int:
+    """Number of statevectors currently held in memory."""
+    return sum(len(states) for states in _STATE_CACHE.values())
+
+
 class ZZKernel:
     """Exact fidelity kernel for a ZZFeatureMap.
 
@@ -74,7 +84,7 @@ class QSVC(ClassifierMixin, BaseEstimator):
         return self
 
     def decision_function(self, X):
-        return self.svc_.decision_function(self.kernel_(X, self.X_train_))
+        return self.svc_.decision_function(self.kernel_(np.asarray(X, dtype=float), self.X_train_))
 
     def predict(self, X):
-        return self.svc_.predict(self.kernel_(X, self.X_train_))
+        return self.svc_.predict(self.kernel_(np.asarray(X, dtype=float), self.X_train_))
