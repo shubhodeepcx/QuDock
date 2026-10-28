@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from sklearn.metrics.pairwise import rbf_kernel
 
 from qudock.analysis import (
@@ -39,3 +40,13 @@ def test_off_diagonal_stats_and_disagreements():
     assert stats == {"mean": 0.0, "var": 0.0}
     d = disagreements([1, 0, 1, 0], [1, 0, 0, 0], [0, 0, 1, 0])
     assert list(d["only_a"]) == [0] and list(d["only_b"]) == [2]
+
+
+def test_degenerate_kernels_do_not_divide_by_zero():
+    from qudock.analysis import effective_dimension, kernel_target_alignment, normalise_trace
+
+    zero = np.zeros((4, 4))
+    assert kernel_target_alignment(zero, [0, 1, 0, 1]) == 0.0
+    assert effective_dimension(zero) == 0.0
+    with pytest.raises(ValueError, match="trace"):
+        normalise_trace(zero)

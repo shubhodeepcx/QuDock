@@ -16,7 +16,10 @@ from scipy.linalg import sqrtm
 
 def normalise_trace(K: np.ndarray) -> np.ndarray:
     """Scale a Gram matrix so its trace equals its size, as in Huang et al."""
-    return K * (len(K) / np.trace(K))
+    trace = np.trace(K)
+    if trace <= 0:
+        raise ValueError("cannot normalise a Gram matrix with a non-positive trace")
+    return K * (len(K) / trace)
 
 
 def geometric_difference(K_classical: np.ndarray, K_quantum: np.ndarray,
@@ -36,13 +39,15 @@ def kernel_target_alignment(K: np.ndarray, y) -> float:
     """<K, yy^T>_F / (||K||_F ||yy^T||_F), with labels mapped to +/-1."""
     y = np.where(np.asarray(y) > 0, 1.0, -1.0)
     Y = np.outer(y, y)
-    return float(np.sum(K * Y) / (np.linalg.norm(K) * np.linalg.norm(Y)))
+    norm = np.linalg.norm(K) * np.linalg.norm(Y)
+    return float(np.sum(K * Y) / norm) if norm > 0 else 0.0
 
 
 def effective_dimension(K: np.ndarray) -> float:
     """Participation ratio of the eigenspectrum: (sum l)^2 / sum l^2."""
     lam = np.clip(np.linalg.eigvalsh(K), 0, None)
-    return float(lam.sum() ** 2 / np.sum(lam**2))
+    total = np.sum(lam**2)
+    return float(lam.sum() ** 2 / total) if total > 0 else 0.0
 
 
 def off_diagonal_stats(K: np.ndarray) -> dict[str, float]:
