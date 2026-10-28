@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 LABELS = {"qsvc": "QSVC (ZZ kernel)", "svm_rbf": "SVM (RBF)",
@@ -174,6 +175,56 @@ def scaling_study(results: pd.DataFrame, path):
         ax.set_xlabel("qubits")
         ax.grid(alpha=0.3)
         ax.legend(frameon=False, fontsize=9)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def trainable_study(summary: pd.DataFrame, path):
+    """Left: test ROC-AUC of the fixed and trained feature maps. Right: their alignment."""
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+    styles = {"fixed": ("#B8BDEB", "--"), "trained": ("#5B3BA8", "-")}
+    for name, g in summary.groupby("feature_map", sort=False):
+        g = g.sort_values("n_train")
+        color, ls = styles.get(name, ("#333333", "-"))
+        label = "ZZ map, fixed" if name == "fixed" else "ZZ map, parameters trained"
+        axes[0].plot(g["n_train"], g["roc_auc"], marker="o", color=color, ls=ls, lw=2, label=label)
+        axes[0].fill_between(g["n_train"], g["roc_auc"] - g["roc_auc_ci"],
+                             g["roc_auc"] + g["roc_auc_ci"], color=color, alpha=0.15)
+        axes[1].plot(g["n_train"], g["alignment"], marker="o", color=color, ls=ls, lw=2,
+                     label=label)
+    axes[0].set_ylabel("test ROC-AUC (scaffold split)")
+    axes[0].set_title("What training the feature map buys")
+    axes[1].set_ylabel("kernel-target alignment")
+    axes[1].set_title("How well the kernel matches the labels")
+    for ax in axes:
+        ax.set_xscale("log")
+        ax.set_xlabel("training molecules")
+        ax.grid(alpha=0.3)
+        ax.legend(frameon=False, fontsize=9)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def scorecard(scorecard: pd.DataFrame, verdicts, path):
+    """Best quantum model minus best classical model, one row per setting."""
+    data = scorecard.dropna(subset=["delta"]).reset_index(drop=True)
+    marks = verdicts.loc[data.index]
+    colors = {"quantum wins": "#5B3BA8", "classical wins": "#E8639F", "tie": "#8A8FB9"}
+    fig, ax = plt.subplots(figsize=(9, 0.55 * len(data) + 1.6))
+    y = np.arange(len(data))[::-1]
+    ax.errorbar(data["delta"], y, xerr=data["ci"], fmt="o", ms=7, lw=0, elinewidth=1.6,
+                ecolor="#B8BDEB", color="none")
+    for yi, (delta, verdict) in enumerate(zip(data["delta"], marks)):
+        ax.plot(delta, y[yi], "o", ms=7, color=colors[verdict])
+    ax.axvline(0, color="#2E1B5B", lw=1)
+    ax.set_yticks(y, data["setting"], fontsize=9)
+    ax.set_xlabel("ROC-AUC: best quantum model minus best classical model")
+    ax.set_title("Where the quantum side wins, ties or loses")
+    ax.grid(alpha=0.3, axis="x")
+    handles = [plt.Line2D([], [], marker="o", ls="", color=c, label=k) for k, c in colors.items()]
+    ax.legend(handles=handles, frameon=False, fontsize=9, loc="lower left")
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)

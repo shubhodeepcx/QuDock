@@ -313,6 +313,22 @@ def main():
         st.caption("PLS features and a tuned bandwidth lift QSVC from 0.708 to 0.743, but the "
                    "same features help classical models more. Full-fingerprint models stay best.")
 
+        st.subheader("Does quantum help? The whole answer in one chart")
+        st.image(str(RESULTS / "scorecard" / "scorecard.png"),
+                 caption="Best quantum model minus best classical model, in every setting "
+                         "we measured")
+        st.caption("The gap closes as the quantum side gets better features, a tuned bandwidth, "
+                   "a hybrid kernel and a trained feature map, from -0.031 to -0.002. It has "
+                   "not crossed zero on these datasets.")
+
+        st.subheader("Training the feature map itself")
+        st.image(str(RESULTS / "trainable" / "trainable_study.png"),
+                 caption="Fixed ZZ map against the same map with its parameters trained by "
+                         "kernel-target alignment")
+        st.caption("Training more than doubles the alignment and wins 14 of 20 runs "
+                   "(+0.012 ROC-AUC, p = 0.03), with the largest gain on the smallest "
+                   "training sets.")
+
         st.subheader("Does it survive more qubits?")
         st.image(str(RESULTS / "scaling" / "scaling_study.png"),
                  caption="Tuning the bandwidth by kernel-target alignment keeps the kernel "

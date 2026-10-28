@@ -352,6 +352,35 @@ The BACE story repeats: the hybrid kernel is level with the best classical model
 while the quantum kernel alone stays behind Random Forest on the same features (-0.027,
 p = 0.02). Two datasets, same conclusion.
 
+### Does training the feature map help? (`qudock trainable`)
+
+The ZZ map is fixed: the only thing we could tune was one global bandwidth. So we made the map
+itself trainable, the way Hubregtsen et al. (2022) propose: every encoding angle gets its own
+weight, every qubit a trainable rotation, and the parameters are chosen by maximising
+kernel-target alignment on the training set, with no SVM fits and no test data. With all weights
+at one and no rotation the circuit is exactly the ZZ map, so the fixed map is the starting point
+of the search and any gain belongs to the training.
+
+![Trainable feature map](results/trainable/trainable_study.png)
+
+| Training molecules | ROC-AUC, fixed | ROC-AUC, trained | Alignment, fixed | Alignment, trained |
+| --: | --: | --: | --: | --: |
+| 100 | 0.682 | 0.703 | 0.25 | 0.58 |
+| 200 | 0.709 | 0.726 | 0.26 | 0.54 |
+| 400 | 0.728 | 0.734 | 0.21 | 0.50 |
+| 1,210 | 0.743 | 0.746 | 0.19 | 0.44 |
+
+Training more than doubles the alignment and wins 14 of 20 runs, +0.012 ROC-AUC on average
+(Wilcoxon p = 0.03), and it costs about 12 seconds per run on a laptop CPU. The gain is largest
+with little data (+0.021 at 100 molecules), which is the regime drug discovery starts in.
+
+Two honest caveats. The trained kernel scores about 0.98 in cross-validation on the training
+molecules but only 0.75 on the test set: it learns the training chemistry very well and
+transfers a little of that to unseen scaffolds. And in the hybrid kernel at full size, any
+quantum weight above zero still costs accuracy (0.784 at weight 0 against 0.743 at weight 1),
+trained or not. Training the map makes the quantum kernel better; it does not make it the best
+model here.
+
 ### How much can you trust one prediction? (`qudock confidence`)
 
 A screening model is only useful if it says when it does not know. We added conformal
@@ -374,6 +403,28 @@ reporting, because a confidence number taken from a random split would have look
 been wrong. Accuracy tracks the same thing: on the third of test molecules least similar to the
 training set, every model loses 0.05 to 0.10 ROC-AUC. The app shows this similarity for each
 molecule you screen.
+
+### The scorecard (`qudock scorecard`)
+
+Every setting we measured, in one chart: the best quantum-containing model against the best
+purely classical model on the same molecules, with a 95% interval over seeds. It is built from
+the result files, so it cannot drift from the experiments.
+
+![Scorecard](results/scorecard/scorecard.png)
+
+| Setting | Best quantum | Best classical | Difference | Verdict |
+| :-- | --: | --: | --: | :-- |
+| BACE, 50 molecules | 0.658 | 0.684 | -0.026 | tie |
+| BACE, 100 molecules | 0.703 | 0.735 | -0.031 | classical wins |
+| BACE, 200 molecules | 0.726 | 0.756 | -0.029 | classical wins |
+| BACE, 400 molecules | 0.757 | 0.769 | -0.012 | tie |
+| BACE, 1,210 molecules | 0.776 | 0.782 | -0.006 | classical wins |
+| BBBP, 1,572 molecules | 0.827 | 0.829 | -0.002 | tie |
+| Trained vs fixed feature map | 0.727 | 0.716 | +0.012 | quantum wins |
+
+The gap closes as the quantum side gets better features, a tuned bandwidth, a hybrid kernel and
+a trained feature map: from -0.031 to -0.002. It has not crossed zero. That is our result, and
+we would rather show the chart than hide it.
 
 ---
 
@@ -438,6 +489,8 @@ vtu-hc-blackout/
 │   ├── screening.py       # Enrichment, BEDROC, PR-AUC, paired bootstrap
 │   ├── conformal.py       # Calibrated confidence and the applicability domain
 │   ├── scaling.py         # Kernel concentration and accuracy from 4 to 14 qubits
+│   ├── trainable.py       # Feature map whose own parameters are trained by alignment
+│   ├── scorecard.py       # Quantum against classical across every setting
 │   ├── final_study.py     # Final-round study
 │   ├── hardware_svm.py    # Projected-kernel SVM trained and tested on a real device
 │   ├── plots.py           # Figures
@@ -449,6 +502,8 @@ vtu-hc-blackout/
 ├── results/scaling/       # Kernel concentration study
 ├── results/confidence/    # Conformal prediction and applicability domain
 ├── results/bbbp/          # The same pipeline on a second dataset
+├── results/trainable/     # Trained feature map study
+├── results/scorecard/     # The scorecard table and chart
 ├── data/                  # Downloaded dataset cache (not committed)
 └── tests/                 # Unit tests
 ```
@@ -501,7 +556,9 @@ qudock hardware                      # rerun on a real IBM device (needs a saved
 qudock final --out results/final     # final-round study: PLS, tuned bandwidth, hybrid, under an hour
 qudock final --dataset bbbp          # the same pipeline on blood-brain barrier data
 qudock scaling --out results/scaling # kernel concentration from 4 to 14 qubits, ~10 min
+qudock trainable                     # train the feature map by kernel alignment, ~10 min
 qudock confidence                    # conformal prediction sets and accuracy by similarity
+qudock scorecard                     # one chart of every setting, from the result files
 qudock reproduce                     # rerun every study that makes a table or figure
 qudock hardware-svm --fake           # projected-kernel SVM on a simulated IBM device
 qudock hardware-svm                  # same on a real IBM device, capped at 5 min of quantum time
