@@ -43,3 +43,24 @@ def test_bad_option_value_exits_with_usage(capsys):
     with pytest.raises(SystemExit):
         main(["benchmark", "--sizes", "25,lots"])
     assert "bad training size" in capsys.readouterr().err
+
+
+def test_version_flag(capsys):
+    from qudock import __version__
+
+    with pytest.raises(SystemExit):
+        main(["--version"])
+    assert __version__ in capsys.readouterr().out
+
+
+def test_data_command_reports_the_chosen_dataset(monkeypatch, capsys):
+    import pandas as pd
+
+    from qudock import cli
+
+    toy = pd.DataFrame({"smiles": ["c1ccccc1O", "c1ccccc1N", "C1CCCCC1O", "CCO", "CCN"] * 2,
+                        "label": [0, 1] * 5})
+    monkeypatch.setitem(cli.DATASETS, "bbbp", lambda: toy)
+    main(["data", "--dataset", "bbbp"])
+    out = capsys.readouterr().out
+    assert "bbbp molecules: 10" in out and "scaffold" in out
