@@ -228,3 +228,34 @@ def scorecard(scorecard: pd.DataFrame, verdicts, path):
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def explain_study(results: pd.DataFrame, path):
+    """Left: removing the highlighted atoms against removing as many random ones.
+    Right: the gap per molecule, so the misses are visible too."""
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4.2))
+    wins = results["gap"] > 0
+    lim = [min(results["random_atoms"].min(), results["top_atoms"].min()) - 0.1,
+           max(results["random_atoms"].max(), results["top_atoms"].max()) + 0.1]
+    a.plot(lim, lim, color="#8A8FB9", ls=":", lw=1)
+    a.scatter(results.loc[wins, "random_atoms"], results.loc[wins, "top_atoms"], s=45,
+              color="#5B3BA8", label="explanation matters more")
+    a.scatter(results.loc[~wins, "random_atoms"], results.loc[~wins, "top_atoms"], s=45,
+              color="#E8639F", label="random atoms matter more")
+    a.set_xlabel("score lost when random atoms are removed")
+    a.set_ylabel("score lost when the highlighted atoms are removed")
+    a.set_title(f"The highlighted atoms carry the prediction ({wins.sum()}/{len(results)})")
+    a.legend(frameon=False, fontsize=9, loc="upper left")
+
+    order = results.sort_values("gap")
+    y = np.arange(len(order))
+    b.barh(y, order["gap"], color=np.where(order["gap"] > 0, "#5B3BA8", "#E8639F"))
+    b.axvline(0, color="#2E1B5B", lw=1)
+    b.set_yticks(y, [s[:18] for s in order["top_substructure"]], fontsize=8)
+    b.set_xlabel("extra score lost, highlighted minus random")
+    b.set_title("Per molecule, labelled by its top substructure")
+    for ax in (a, b):
+        ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)

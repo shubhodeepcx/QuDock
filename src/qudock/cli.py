@@ -1,6 +1,6 @@
 """Command line entry point: ``qudock data``, ``benchmark``, ``sweep``, ``noise``,
 ``hardware``, ``final``, ``scaling``, ``trainable``, ``confidence``, ``scorecard``,
-``hardware-svm`` and ``reproduce``."""
+``explain``, ``hardware-svm`` and ``reproduce``."""
 
 from __future__ import annotations
 
@@ -8,16 +8,19 @@ import argparse
 import logging
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
 from qudock.conformal import run_confidence_study
 from qudock.data import DATASETS, load_bace, random_split, scaffold_split
+from qudock.explain import run_explain_study, summarise_explain
 from qudock.final_study import FinalConfig, compare_pairs, run_final_study, summarise_final
 from qudock.hardware import HardwareConfig, reanalyse, run_hardware_study, save_hardware_study
 from qudock.noise_study import NoiseConfig, run_noise_study
 from qudock.plots import (
     confidence_study,
+    explain_study,
     final_study,
     learning_curve,
     noise_study,
@@ -177,6 +180,44 @@ def cmd_trainable(args):
     print(f"wrote results to {out}/")
 
 
+def cmd_explain(args):
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    results = run_explain_study(n_qubits=args.qubits, n_train=args.n_train,
+                                n_molecules=args.molecules, seed=args.seed)
+    results.to_csv(out / "explain_study.csv", index=False)
+    explain_study(results, out / "explain_study.png")
+    summary = summarise_explain(results)
+    pd.Series(summary).to_csv(out / "explain_summary.csv", header=False)
+    save_examples(results, out, args)
+    print(results[["label", "score", "n_atoms", "n_removed", "top_substructure",
+                   "top_atoms", "random_atoms", "gap"]].round(3).to_string(index=False))
+    print(pd.Series(summary).round(3).to_string())
+    print(f"wrote results to {out}/")
+
+
+def save_examples(results, out, args, n: int = 3):
+    """Draw the highlighted molecules themselves, for the poster and the README."""
+    from qudock.explain import draw_explanation, explain_molecule
+    from qudock.features import FeaturePipeline, morgan_fingerprints
+    from qudock.kernels import KernelSVM, stack, tune_bandwidth
+
+    df = load_bace()
+    split = scaffold_split(df["smiles"])
+    smiles, y = df["smiles"].values, df["label"].values
+    rng = np.random.default_rng(args.seed)
+    keep = rng.choice(split.train, size=min(args.n_train, len(split.train)), replace=False)
+    pipe = FeaturePipeline(args.qubits, seed=args.seed, method="pls", use_descriptors=True)
+    A_tr = pipe.fit_transform(smiles[keep], y[keep])
+    bandwidth = tune_bandwidth(A_tr, y[keep], args.qubits, seed=args.seed)
+    model = KernelSVM(kind="hybrid", n_angles=args.qubits, C=1, weight=0.25,
+                      bandwidth=bandwidth).fit(stack(A_tr, morgan_fingerprints(smiles[keep])),
+                                               y[keep])
+    for i, smi in enumerate(results.sort_values("gap", ascending=False)["smiles"].head(n)):
+        png = draw_explanation(explain_molecule(smi, pipe, model, fingerprints=True))
+        (out / f"example_{i + 1}.png").write_bytes(png)
+
+
 def cmd_confidence(args):
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -201,6 +242,7 @@ REPRODUCE = [
     ("scaling", ["--out", "results/scaling"]),
     ("trainable", ["--out", "results/trainable"]),
     ("confidence", ["--out", "results/confidence"]),
+    ("explain", ["--out", "results/explain"]),
     ("scorecard", ["--out", "results/scorecard"]),
     ("hardware", ["--reanalyse"]),          # saved device data, no quantum time needed
     ("hardware-svm", ["--reanalyse"]),
@@ -330,6 +372,15 @@ def main(argv=None):
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default="results/confidence")
     p.set_defaults(func=cmd_confidence)
+
+    p = sub.add_parser("explain",
+                       help="which atoms drove each prediction, and whether they really did")
+    p.add_argument("--qubits", type=int, default=6)
+    p.add_argument("--n-train", type=int, default=400)
+    p.add_argument("--molecules", type=int, default=24)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--out", default="results/explain")
+    p.set_defaults(func=cmd_explain)
 
     p = sub.add_parser("hardware-svm",
                        help="train and test a projected-kernel SVM on an IBM Quantum device")
