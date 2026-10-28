@@ -1,6 +1,6 @@
 """Command line entry point: ``qudock data``, ``benchmark``, ``sweep``, ``noise``,
 ``hardware``, ``final``, ``scaling``, ``trainable``, ``confidence``, ``scorecard``,
-``explain``, ``screen``, ``hardware-svm`` and ``reproduce``."""
+``explain``, ``graph``, ``screen``, ``hardware-svm`` and ``reproduce``."""
 
 from __future__ import annotations
 
@@ -317,6 +317,20 @@ def cmd_scaling(args):
     print(f"wrote results to {out}/")
 
 
+def cmd_graph(args):
+    """Pharmacophore-graph feature map against its classical twins."""
+    from qudock.graphmap import run_graph_study
+    from qudock.plots import graph_study
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    results = run_graph_study(seeds=range(args.seeds), sizes=args.sizes, reps=args.reps)
+    results.to_csv(out / "graph_runs.csv", index=False)
+    graph_study(results, out / "graph_study.png")
+    print(results.groupby(["n_train", "model"])["roc_auc"].mean().unstack().round(3))
+    print(f"wrote results to {out}/")
+
+
 def cmd_screen(args):
     """Rank a library by activity, brain penetration and drug-likeness."""
     from qudock.data import load_bbbp
@@ -456,6 +470,14 @@ def main(argv=None):
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default="results/explain")
     p.set_defaults(func=cmd_explain)
+
+    p = sub.add_parser("graph",
+                       help="feature map built from the pharmacophore graph, vs classical twins")
+    p.add_argument("--sizes", type=parse_sizes, default="100,400,full")
+    p.add_argument("--seeds", type=int, default=3)
+    p.add_argument("--reps", type=int, default=2)
+    p.add_argument("--out", default="results/graph")
+    p.set_defaults(func=cmd_graph)
 
     p = sub.add_parser("screen",
                        help="rank a library by BACE-1 activity, brain penetration and QED")
