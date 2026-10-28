@@ -1,0 +1,14 @@
+setting,quantum_model,classical_model,quantum,classical,delta,ci,seeds,verdict
+"BACE, 50 molecules",hybrid_pls,rf_fingerprint,0.6583527201145312,0.6843906585540444,-0.026037938439513186,0.0346436310583837,10,tie
+"BACE, 100 molecules",hybrid_pls,rf_fingerprint,0.7034806728704366,0.7347172512526843,-0.031236578382247693,0.030965477072614316,10,classical wins
+"BACE, 200 molecules",hybrid_pca,rf_fingerprint,0.7262571581961346,0.755552075876879,-0.029294917680744437,0.020560788625523217,10,classical wins
+"BACE, 400 molecules",hybrid_pca,rf_fingerprint,0.7568181818181818,0.76875,-0.01193181818181821,0.014892115960788157,10,tie
+"BACE, 1,210 molecules",hybrid_pca,rf_fingerprint,0.7757605583392986,0.781784627773801,-0.006024069434502399,0.005317289666000127,10,classical wins
+"BBBP, 1,572 molecules",hybrid_pca,rf_fingerprint,0.826995232172471,0.8285240464344941,-0.0015288142620231149,0.0037585732548962034,5,tie
+"BACE, 4 qubits (no classical arm)",tuned bandwidth,,0.6813707945597709,,,0.0,1,tie
+"BACE, 6 qubits (no classical arm)",tuned bandwidth,,0.6787759484609879,,,0.0,1,tie
+"BACE, 8 qubits (no classical arm)",tuned bandwidth,,0.6607909806728703,,,0.0,1,tie
+"BACE, 10 qubits (no classical arm)",tuned bandwidth,,0.6657569792412312,,,0.0,1,tie
+"BACE, 12 qubits (no classical arm)",tuned bandwidth,,0.662625268432355,,,0.0,1,tie
+"BACE, 14 qubits (no classical arm)",tuned bandwidth,,0.6710808876163208,,,0.0,1,tie
+Trained feature map vs fixed,trained,fixed quantum map,0.727467340730136,0.7156093414459554,0.011857999284180382,0.009359407274254725,20,quantum wins
