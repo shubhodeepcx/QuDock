@@ -500,7 +500,7 @@ vtu-hc-blackout/
 ├── pyproject.toml         # Package metadata and the `qudock` command
 ├── Dockerfile
 ├── docs/demo.png          # Demo screenshot
-├── .github/workflows/     # CI: ruff + pytest on every push
+├── .github/workflows/     # CI (ruff + pytest), docs deploy, PyPI release on tags
 ├── notebooks/
 │   └── demo.ipynb         # End-to-end walkthrough of the pipeline and results
 ├── src/qudock/
@@ -523,6 +523,12 @@ vtu-hc-blackout/
 │   ├── scorecard.py       # Quantum against classical across every setting
 │   ├── final_study.py     # Final-round study
 │   ├── hardware_svm.py    # Projected-kernel SVM trained and tested on a real device
+│   ├── graphmap.py        # Feature map built from the pharmacophore graph
+│   ├── shadows.py         # Classical-shadow estimates of one- and two-qubit Paulis
+│   ├── screen.py          # Rank libraries: activity x brain penetration x drug-likeness
+│   ├── bench.py           # QuDock-Bench: fixed tasks, splits and seeds for any model
+│   ├── api.py             # HTTP API around the screener (`qudock serve`)
+│   ├── provenance.py      # provenance.json next to every result
 │   ├── plots.py           # Figures
 │   └── cli.py             # `qudock` command line
 ├── app/app.py             # Streamlit web app: screen molecules, compare models
@@ -536,6 +542,9 @@ vtu-hc-blackout/
 ├── results/trainable/     # Trained feature map study
 ├── results/scorecard/     # The scorecard table and chart
 ├── data/                  # Downloaded dataset cache (not committed)
+├── docs/                  # Documentation site (mkdocs), deployed to GitHub Pages
+├── Makefile               # make install / lint / test / check / app
+├── CITATION.cff           # How to cite QuDock
 └── tests/                 # Unit tests
 ```
 
@@ -594,7 +603,17 @@ qudock scorecard                     # one chart of every setting, from the resu
 qudock reproduce                     # rerun every study that makes a table or figure
 qudock hardware-svm --fake           # projected-kernel SVM on a simulated IBM device
 qudock hardware-svm                  # same on a real IBM device, capped at 5 min of quantum time
+qudock hardware-svm --mitigation zne # with zero-noise extrapolation on top of readout mitigation
+qudock graph                         # pharmacophore-graph feature map vs classical twins
+qudock bench                         # QuDock-Bench leaderboard on BACE, BBBP and ClinTox
+qudock bench --models my_models:my_svm,rf_fingerprint   # score your own model
+qudock screen library.csv            # rank a library: activity x BBB x drug-likeness
+qudock screen                        # rank the BACE test set and check it against labels
+qudock serve                         # HTTP API (pip install -e .[api]), docs at /docs
 ```
+
+Every command that writes results also writes `provenance.json` (command, git commit,
+package versions, dataset hashes) into the same folder.
 
 Or try the web app, live at [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) or locally, where you can screen your own molecules and change the settings:
 
@@ -619,8 +638,11 @@ docker run --rm -v "$PWD/results:/app/results" qudock benchmark --out results/fu
 ### 5. Run the tests
 
 ```bash
-pytest -q
+make check                       # ruff + pytest with the right environment variables
+# or: pytest -q
 ```
+
+Full documentation: `pip install -e .[docs] && mkdocs serve`, then open http://127.0.0.1:8000.
 
 ---
 
