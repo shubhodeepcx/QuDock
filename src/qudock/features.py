@@ -64,10 +64,16 @@ DESCRIPTORS = {
 }
 
 
+@lru_cache(maxsize=20_000)
+def _descriptor_row(smiles: str) -> tuple[float, ...]:
+    mol = parse(smiles)
+    return tuple(float(f(mol)) for f in DESCRIPTORS.values())
+
+
 def descriptors(smiles) -> np.ndarray:
     """RDKit descriptors in ``DESCRIPTORS`` as a float matrix."""
-    mols = [parse(s) for s in smiles]
-    return np.array([[f(m) for f in DESCRIPTORS.values()] for m in mols], dtype=np.float64)
+    return np.array([_descriptor_row(s) for s in smiles], dtype=np.float64).reshape(
+        len(smiles), len(DESCRIPTORS))
 
 
 METHODS = ("pca", "pls")
