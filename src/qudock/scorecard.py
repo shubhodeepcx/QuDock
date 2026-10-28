@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 
 QUANTUM = {"qsvc_pca", "qsvc_pls", "projected_pls", "hybrid_pca", "hybrid_pls"}
-CLASSICAL = {"svm_rbf_pca", "svm_rbf_pls", "rf_pca", "rf_pls", "tanimoto_svm", "rf_fingerprint"}
+CLASSICAL = {"svm_rbf_pca", "svm_rbf_pls", "rf_pca", "rf_pls", "tanimoto_svm", "rf_fingerprint",
+             "gb_fingerprint"}
 
 
 def _best_pair(runs: pd.DataFrame, setting: str) -> dict:
