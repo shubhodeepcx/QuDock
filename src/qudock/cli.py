@@ -1,6 +1,6 @@
 """Command line entry point: ``qudock data``, ``benchmark``, ``sweep``, ``noise``,
 ``hardware``, ``final``, ``scaling``, ``trainable``, ``confidence``, ``scorecard``,
-``explain``, ``hardware-svm`` and ``reproduce``."""
+``explain``, ``screen``, ``hardware-svm`` and ``reproduce``."""
 
 from __future__ import annotations
 
@@ -317,6 +317,30 @@ def cmd_scaling(args):
     print(f"wrote results to {out}/")
 
 
+def cmd_screen(args):
+    """Rank a library by activity, brain penetration and drug-likeness."""
+    from qudock.data import load_bbbp
+    from qudock.screen import ScreenConfig, Screener, holdout_check, read_library, screen_library
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    cfg = ScreenConfig(n_qubits=args.qubits, confidence=args.confidence, seed=args.seed)
+    bace, bbbp = load_bace(), load_bbbp()
+    if args.library is None:
+        table, summary = holdout_check(bace, bbbp, cfg)
+        table.sort_values("combined", ascending=False).to_csv(out / "holdout_ranking.csv",
+                                                              index=False)
+        summary.to_csv(out / "holdout_summary.csv")
+        print(summary.round(3).to_string())
+    else:
+        ranked = screen_library(Screener(cfg).fit(bace, bbbp), read_library(args.library))
+        ranked.to_csv(out / "ranking.csv", index=False)
+        cols = [c for c in ("rank", "name", "smiles", "combined", "p_active", "activity_call",
+                            "bbb_probability", "qed", "pains", "in_domain") if c in ranked]
+        print(ranked[cols].head(args.top).round(3).to_string(index=False))
+    print(f"wrote results to {out}/")
+
+
 def cmd_hardware_svm(args):
     from qudock.hardware_svm import HardwareSVMConfig, reanalyse, run_hardware_svm, save
 
@@ -432,6 +456,18 @@ def main(argv=None):
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default="results/explain")
     p.set_defaults(func=cmd_explain)
+
+    p = sub.add_parser("screen",
+                       help="rank a library by BACE-1 activity, brain penetration and QED")
+    p.add_argument("library", nargs="?", default=None,
+                   help="CSV with a smiles column, or .smi file; leave out to rank the "
+                        "BACE test set and check the ranking against known labels")
+    p.add_argument("--qubits", type=int, default=6)
+    p.add_argument("--confidence", type=float, default=0.8)
+    p.add_argument("--top", type=int, default=20, help="rows to print")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--out", default="results/screen")
+    p.set_defaults(func=cmd_screen)
 
     p = sub.add_parser("hardware-svm",
                        help="train and test a projected-kernel SVM on an IBM Quantum device")
