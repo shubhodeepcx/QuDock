@@ -28,11 +28,13 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from qudock.analysis import geometric_difference, kernel_target_alignment
 from qudock.classical import make_classical, scores
+from qudock.conformal import nearest_neighbour_similarity
 from qudock.data import load_bace, scaffold_split
-from qudock.features import FeaturePipeline
+from qudock.features import FeaturePipeline, morgan_fingerprints
 from qudock.quantum import _STATE_CACHE, QSVC, ZZKernel
 
 RESULTS = ROOT / "results"
+LIBRARY_LIMIT = 200          # keeps one upload inside the hosted app's memory limit
 NAMES = {"qsvc": "QSVC (quantum kernel)", "svm_rbf": "SVM-RBF", "random_forest": "Random Forest",
          "logreg": "Logistic Regression"}
 
@@ -68,6 +70,7 @@ def _train(data, n_qubits, n_train, reps, bandwidth):
         models[name] = make_classical(name, n_train=len(train_idx)).fit(X_train, y[train_idx])
     aucs = {name: roc_auc_score(y[test_idx], scores(m, X_test)) for name, m in models.items()}
     return {"pipe": pipe, "models": models, "aucs": aucs, "X_train": X_train,
+            "fp_train": morgan_fingerprints(smiles[train_idx]),
             "train_idx": train_idx, "test_idx": test_idx}
 
 
@@ -116,8 +119,9 @@ def main():
              "models on exactly the same features. Test molecules come from chemical families the "
              "models have never seen (scaffold split).")
 
-    tab_screen, tab_compare, tab_kernel, tab_results = st.tabs(
-        ["1. Screen a molecule", "2. Compare models", "3. Inside the kernel", "4. Full results & IBM hardware"])
+    tab_screen, tab_library, tab_compare, tab_kernel, tab_results = st.tabs(
+        ["1. Screen a molecule", "2. Screen a library", "3. Compare models", "4. Inside the kernel",
+         "5. Full results & IBM hardware"])
 
     # ---------------------------------------------------------------- screen a molecule
     with tab_screen:
@@ -171,6 +175,14 @@ def main():
                        "inhibitor), probability for Random Forest (above 0.5). Test ROC-AUC is measured "
                        "on all unseen test molecules.")
 
+            similarity = float(nearest_neighbour_similarity(morgan_fingerprints([smi]),
+                                                            run["fp_train"])[0])
+            st.write(f"**How new is this chemistry?** Tanimoto similarity to the closest "
+                     f"training molecule: **{similarity:.2f}**")
+            st.caption("We measured accuracy against this number on the test set (tab 4). Below "
+                       "about 0.65 the models are reading chemistry they have barely seen, and "
+                       "every model loses 0.05 to 0.10 ROC-AUC there.")
+
             st.write("**Most similar training molecules according to the quantum kernel**")
             k = q(models["qsvc"].kernel_, x, run["X_train"])[0]
             cols = st.columns(3)
@@ -187,6 +199,55 @@ def main():
             st.caption("ZZ feature map: Hadamards, then Z rotations by each angle and ZZ "
                        "entangling gates between neighbouring qubits, repeated. The kernel between "
                        "two molecules is the overlap of their quantum states.")
+
+    # ---------------------------------------------------------------- screen a library
+    with tab_library:
+        st.write("Rank a whole list of molecules, the way a screening campaign would. Paste SMILES "
+                 "(one per line) or upload a CSV with a `smiles` column, then download the ranking.")
+        upload = st.file_uploader("CSV with a `smiles` column", type="csv")
+        pasted = st.text_area("or paste SMILES, one per line", height=120,
+                              placeholder="CC(=O)Oc1ccccc1C(=O)O\nCN1C=NC2=C1C(=O)N(C)C(=O)N2C")
+        if upload is not None:
+            table = pd.read_csv(upload)
+            column = next((c for c in table.columns if c.lower() in ("smiles", "mol")), None)
+            library = [] if column is None else table[column].astype(str).tolist()
+            if column is None:
+                st.error("No `smiles` column in that file.")
+        else:
+            library = [line.strip() for line in pasted.splitlines() if line.strip()]
+
+        if library:
+            parsed = [s for s in library if Chem.MolFromSmiles(s) is not None]
+            if len(parsed) < len(library):
+                skipped = len(library) - len(parsed)
+                st.warning(f"{skipped} molecule{'s' if skipped > 1 else ''} could not be read "
+                           "and were skipped.")
+            if len(parsed) > LIBRARY_LIMIT:
+                st.warning(f"Showing the first {LIBRARY_LIMIT} molecules, to keep the hosted app "
+                           "inside its memory limit.")
+                parsed = parsed[:LIBRARY_LIMIT]
+        if library and parsed:
+            X_lib = pipe.transform(parsed)
+            ranking = pd.DataFrame({
+                "smiles": parsed,
+                "quantum score": q(scores, models["qsvc"], X_lib).round(3),
+                "random forest": q(scores, models["random_forest"], X_lib).round(3),
+                "similarity to training set":
+                    nearest_neighbour_similarity(morgan_fingerprints(parsed),
+                                                 run["fp_train"]).round(2),
+            }).sort_values("quantum score", ascending=False).reset_index(drop=True)
+            ranking.insert(0, "rank", ranking.index + 1)
+            st.dataframe(ranking, hide_index=True, width="stretch")
+            st.download_button("Download the ranking", ranking.to_csv(index=False),
+                               "qudock_ranking.csv", "text/csv")
+            top = ranking.head(3)
+            cols = st.columns(len(top))
+            for c, (_, row) in zip(cols, top.iterrows()):
+                c.image(mol_image(row["smiles"], (220, 160)))
+                c.caption(f"#{row['rank']} · score {row['quantum score']:.2f}")
+            st.caption("The quantum score is the SVM decision value: above 0 means the model "
+                       "calls it an inhibitor. Molecules with low similarity to the training set "
+                       "sit outside what the model has seen, so treat their scores with care.")
 
     # ---------------------------------------------------------------- compare models
     with tab_compare:
@@ -251,6 +312,33 @@ def main():
                      .round(3), hide_index=True)
         st.caption("PLS features and a tuned bandwidth lift QSVC from 0.708 to 0.743, but the "
                    "same features help classical models more. Full-fingerprint models stay best.")
+
+        st.subheader("Does it survive more qubits?")
+        st.image(str(RESULTS / "scaling" / "scaling_study.png"),
+                 caption="Tuning the bandwidth by kernel-target alignment keeps the kernel "
+                         "informative from 4 to 14 qubits.")
+        st.caption("At a fixed bandwidth the spread of kernel values falls by a factor of 11 "
+                   "between 4 and 14 qubits, and accuracy follows. The tuned kernel keeps it 9 "
+                   "to 17 times larger and stays 0.03 to 0.09 ROC-AUC ahead at every width.")
+
+        st.subheader("Does it hold on another task?")
+        st.image(str(RESULTS / "bbbp" / "bbbp_study.png"),
+                 caption="The same pipeline, unchanged, on blood-brain barrier penetration "
+                         "(MoleculeNet BBBP, 1,965 molecules)")
+        st.caption("Same conclusion as on BACE: the hybrid kernel is level with the best "
+                   "classical model (0.827 against 0.829), and the quantum kernel alone stays "
+                   "behind Random Forest on the same features.")
+
+        st.subheader("How much can you trust one prediction?")
+        st.image(str(RESULTS / "confidence" / "confidence_study.png"),
+                 caption="Left: measured against promised confidence. Right: accuracy by how "
+                         "similar a molecule is to the training set.")
+        st.dataframe(pd.read_csv(RESULTS / "confidence" / "conformal_sets.csv").round(3),
+                     hide_index=True)
+        st.caption("Conformal prediction turns a score into a calibrated set of labels, but its "
+                   "promise assumes new molecules look like old ones. On a scaffold split they do "
+                   "not: asking for 90% confidence really gives 66 to 86%. We report the measured "
+                   "number rather than the promised one.")
 
         st.subheader("Full experiments (from results/full)")
         c1, c2 = st.columns(2)
