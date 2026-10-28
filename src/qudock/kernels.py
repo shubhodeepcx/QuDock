@@ -141,3 +141,78 @@ class KernelSVM(ClassifierMixin, BaseEstimator):
 def stack(angles: np.ndarray, fingerprints: np.ndarray) -> np.ndarray:
     """Join qubit angles and fingerprints into the single input KernelSVM expects."""
     return np.hstack([angles, fingerprints])
+
+
+class Nystroem:
+    """Low-rank feature map from a kernel evaluated against ``n_landmarks`` molecules.
+
+    phi(x) = k(x, L) K_LL^{-1/2}, so phi(x) . phi(y) approximates k(x, y). The
+    Gram matrix then costs n * m kernel entries instead of n^2 / 2, which on
+    hardware is the difference between quadratic and linear circuit counts,
+    and it equals the exact kernel when every training molecule is a landmark.
+    Landmarks are a stratified random sample when labels are given.
+    """
+
+    def __init__(self, kernel, n_landmarks: int = 100, seed: int = 0, eps: float = 1e-10):
+        self.kernel = kernel
+        self.n_landmarks = n_landmarks
+        self.seed = seed
+        self.eps = eps
+
+    def fit(self, X, y=None) -> Nystroem:
+        X = np.asarray(X, dtype=float)
+        m = min(self.n_landmarks, len(X))
+        rng = np.random.default_rng(self.seed)
+        if y is None or m == len(X):
+            idx = rng.choice(len(X), m, replace=False)
+        else:
+            y = np.asarray(y)
+            idx = np.concatenate([
+                rng.choice(np.flatnonzero(y == c),
+                           max(1, round(m * np.mean(y == c))), replace=False)
+                for c in np.unique(y)])[:m]
+        self.landmarks_ = X[np.sort(idx)]
+        lam, V = np.linalg.eigh(self.kernel(self.landmarks_))
+        keep = lam > self.eps * lam.max()
+        self.map_ = V[:, keep] / np.sqrt(lam[keep])
+        return self
+
+    def transform(self, X) -> np.ndarray:
+        return self.kernel(np.asarray(X, dtype=float), self.landmarks_) @ self.map_
+
+    def fit_transform(self, X, y=None) -> np.ndarray:
+        return self.fit(X, y).transform(X)
+
+
+class NystroemSVM(ClassifierMixin, BaseEstimator):
+    """Linear SVM on Nystroem features of the ZZ or projected quantum kernel."""
+
+    def __init__(self, kind: str = "quantum", n_landmarks: int = 100, C: float = 1.0,
+                 bandwidth: float = 0.5, gamma: float = 1.0, reps: int = 2, seed: int = 0):
+        self.kind = kind
+        self.n_landmarks = n_landmarks
+        self.C = C
+        self.bandwidth = bandwidth
+        self.gamma = gamma
+        self.reps = reps
+        self.seed = seed
+
+    def fit(self, X, y):
+        from sklearn.svm import LinearSVC
+
+        X = np.asarray(X, dtype=float)
+        n = X.shape[1]
+        kernel = (ProjectedKernel(n, self.reps, self.bandwidth, self.gamma)
+                  if self.kind == "projected" else ZZKernel(n, reps=self.reps,
+                                                            bandwidth=self.bandwidth))
+        self.nystroem_ = Nystroem(kernel, self.n_landmarks, self.seed).fit(X, y)
+        self.svc_ = LinearSVC(C=self.C, random_state=self.seed, max_iter=20_000)
+        self.svc_.fit(self.nystroem_.transform(X), y)
+        self.classes_ = self.svc_.classes_
+        return self
+
+    def decision_function(self, X):
+        return self.svc_.decision_function(self.nystroem_.transform(X))
+
+    def predict(self, X):
+        return self.svc_.predict(self.nystroem_.transform(X))

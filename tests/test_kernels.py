@@ -99,3 +99,41 @@ def test_scaling_study_reports_spread_and_accuracy():
     assert len(out) == 6
     assert out["roc_auc"].between(0, 1).all()
     assert out["off_diagonal_spread"].gt(0).all()
+
+
+def test_nystroem_is_exact_with_every_point_as_landmark():
+    from qudock.kernels import Nystroem
+    from qudock.quantum import ZZKernel
+
+    X = rng.uniform(0, np.pi, size=(30, 3))
+    kernel = ZZKernel(3, bandwidth=0.5)
+    F = Nystroem(kernel, n_landmarks=30).fit_transform(X)
+    assert np.allclose(F @ F.T, kernel(X), atol=1e-6)
+
+
+def test_nystroem_error_shrinks_with_more_landmarks():
+    from qudock.kernels import Nystroem
+    from qudock.quantum import ZZKernel
+
+    X = rng.uniform(0, np.pi, size=(120, 4))
+    y = (X[:, 0] > np.pi / 2).astype(int)
+    kernel = ZZKernel(4, bandwidth=0.4)
+    K = kernel(X)
+    errors = [np.linalg.norm(Nystroem(kernel, m).fit(X, y).transform(X) @
+                             Nystroem(kernel, m).fit(X, y).transform(X).T - K) / np.linalg.norm(K)
+              for m in (10, 40, 120)]
+    assert errors[0] > errors[1] > errors[2] and errors[2] < 1e-6
+
+
+def test_nystroem_svm_learns_a_separable_problem():
+    from qudock.kernels import NystroemSVM
+
+    local = np.random.default_rng(0)
+    X = local.uniform(0, np.pi, size=(160, 3))
+    y = (X[:, 0] > np.pi / 2).astype(int)
+    for kind in ("quantum", "projected"):
+        approx = NystroemSVM(kind=kind, n_landmarks=40, C=1).fit(X[:120], y[:120])
+        exact = KernelSVM(kind=kind, n_angles=3, C=1).fit(X[:120], y[:120])
+        auc = roc_auc_score(y[120:], approx.decision_function(X[120:]))
+        assert auc > 0.8, kind
+        assert abs(auc - roc_auc_score(y[120:], exact.decision_function(X[120:]))) < 0.05, kind
