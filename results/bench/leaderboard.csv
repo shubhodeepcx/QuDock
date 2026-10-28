@@ -1,0 +1,8 @@
+model,mean_rank,quantum,bace,bbbp,clintox
+tanimoto_svm,1.67,False,0.784 ± 0.008,0.826 ± 0.0,0.865 ± 0.0
+gb_fingerprint,2.33,False,0.759 ± 0.007,0.831 ± 0.006,0.85 ± 0.01
+rf_fingerprint,2.33,False,0.782 ± 0.002,0.831 ± 0.001,0.842 ± 0.007
+hybrid_pls,4.33,True,0.766 ± 0.0,0.784 ± 0.0,0.691 ± 0.01
+qsvc_pls,5.67,True,0.754 ± 0.0,0.778 ± 0.0,0.622 ± 0.021
+nystroem_projected,5.67,True,0.716 ± 0.004,0.795 ± 0.006,0.518 ± 0.007
+graph_quantum,6.0,True,0.656 ± 0.0,0.789 ± 0.008,0.579 ± 0.073
