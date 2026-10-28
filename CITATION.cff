@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use QuDock or QuDock-Bench, please cite it as below."
+title: "QuDock: quantum kernels vs classical models for BACE-1 inhibitor screening"
+type: software
+authors:
+  - given-names: Shubhodeep
+    family-names: Chatterjee
+  - given-names: Srijita
+    family-names: Banerjee
+  - given-names: Rounak
+    family-names: Pal
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout"
+url: "https://qudock-blackout.streamlit.app/"
+keywords:
+  - quantum machine learning
+  - quantum kernels
+  - drug discovery
+  - Alzheimer's disease
+  - BACE-1
+  - virtual screening
+abstract: >-
+  QuDock tests whether quantum kernels help find BACE-1 inhibitors, a key
+  Alzheimer's drug target, when data is scarce and hardware is noisy. It
+  compares ZZ, projected, trainable and pharmacophore-graph quantum kernels
+  with strong classical baselines on scaffold splits, measures kernels on IBM
+  Quantum hardware, and ships QuDock-Bench, a fixed protocol for scoring any
+  molecule classifier on BACE, BBBP and ClinTox.
