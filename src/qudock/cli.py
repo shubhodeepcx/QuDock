@@ -1,5 +1,5 @@
 """Command line entry point: ``qudock data``, ``benchmark``, ``sweep``, ``noise``,
-``hardware``, ``final`` and ``hardware-svm``."""
+``hardware``, ``final``, ``scaling``, ``confidence``, ``hardware-svm`` and ``reproduce``."""
 
 from __future__ import annotations
 
@@ -8,11 +8,20 @@ import logging
 from pathlib import Path
 
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
-from qudock.data import load_bace, random_split, scaffold_split
+from qudock.conformal import run_confidence_study
+from qudock.data import DATASETS, load_bace, random_split, scaffold_split
 from qudock.final_study import FinalConfig, compare_pairs, run_final_study, summarise_final
 from qudock.hardware import HardwareConfig, reanalyse, run_hardware_study, save_hardware_study
 from qudock.noise_study import NoiseConfig, run_noise_study
-from qudock.plots import final_study, learning_curve, noise_study, qubit_sweep
+from qudock.plots import (
+    confidence_study,
+    final_study,
+    learning_curve,
+    noise_study,
+    qubit_sweep,
+    scaling_study,
+)
+from qudock.scaling import run_scaling_study
 from qudock.sweep import qubit_sweep as run_sweep
 
 
@@ -104,11 +113,13 @@ PAIRS = [("hybrid_pca", "tanimoto_svm"), ("hybrid_pls", "tanimoto_svm"),
 
 def cmd_final(args):
     sizes = [None if s == "full" else int(s) for s in args.sizes.split(",")]
-    cfg = FinalConfig(n_qubits=args.qubits, sizes=sizes, seeds=list(range(args.seeds)))
+    models = args.models.split(",") if args.models else None
+    cfg = FinalConfig(n_qubits=args.qubits, sizes=sizes, seeds=list(range(args.seeds)),
+                      **({"models": models} if models else {}))
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    results, test_scores = run_final_study(cfg)
+    results, test_scores = run_final_study(cfg, DATASETS[args.dataset]())
     results.to_csv(out / "final_runs.csv", index=False)
     summary = summarise_final(results)
     summary.to_csv(out / "final_summary.csv", index=False)
@@ -117,9 +128,58 @@ def cmd_final(args):
         pairs = compare_pairs(test_scores, PAIRS)
         pairs.to_csv(out / "paired_tests.csv", index=False)
         print(pairs.round(3).to_string(index=False))
-    final_study(summary, out / "final_study.png")
+    final_study(summary, out / f"{'final' if args.dataset == 'bace' else args.dataset}_study.png")
 
     print(summary.pivot(index="n_train", columns="model", values="roc_auc").round(3))
+    print(f"wrote results to {out}/")
+
+
+def cmd_confidence(args):
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    sets, domain = run_confidence_study(n_qubits=args.qubits, seed=args.seed)
+    sets.to_csv(out / "conformal_sets.csv", index=False)
+    domain.to_csv(out / "applicability_domain.csv", index=False)
+    confidence_study(sets, domain, out / "confidence_study.png")
+    print(sets.round(3).to_string(index=False))
+    print(domain.round(3).to_string(index=False))
+    print(f"wrote results to {out}/")
+
+
+BBBP_MODELS = ("qsvc_pca,qsvc_pls,svm_rbf_pls,rf_pls,tanimoto_svm,rf_fingerprint,hybrid_pca")
+
+REPRODUCE = [
+    ("benchmark", ["--out", "results/full"]),
+    ("sweep", ["--out", "results/full"]),
+    ("noise", ["--out", "results/full"]),
+    ("final", ["--out", "results/final"]),
+    ("final", ["--dataset", "bbbp", "--sizes", "100,400,full", "--seeds", "5",
+               "--models", BBBP_MODELS, "--out", "results/bbbp"]),
+    ("scaling", ["--out", "results/scaling"]),
+    ("confidence", ["--out", "results/confidence"]),
+    ("hardware", ["--reanalyse"]),          # saved device data, no quantum time needed
+    ("hardware-svm", ["--reanalyse"]),
+]
+
+
+def cmd_reproduce(args):
+    """Regenerate every table and figure a reader sees, from saved data only."""
+    for name, extra in REPRODUCE:
+        if args.skip and name in args.skip.split(","):
+            continue
+        print(f"\n=== qudock {name} {' '.join(extra)}")
+        main([*(["--verbose"] if args.verbose else []), name, *extra])
+
+
+def cmd_scaling(args):
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    qubits = [int(q) for q in args.qubits.split(",")]
+    results = run_scaling_study(qubits=qubits, n_train=args.n_train, seed=args.seed)
+    results.to_csv(out / "scaling.csv", index=False)
+    scaling_study(results, out / "scaling_study.png")
+    print(results[["n_qubits", "kind", "bandwidth", "off_diagonal_spread", "roc_auc"]]
+          .round(3).to_string(index=False))
     print(f"wrote results to {out}/")
 
 
@@ -188,11 +248,32 @@ def main(argv=None):
     p.set_defaults(func=cmd_hardware)
 
     p = sub.add_parser("final", help="final-round study: tuned, projected and hybrid kernels")
+    p.add_argument("--dataset", choices=sorted(DATASETS), default="bace")
+    p.add_argument("--models", default=None, help="comma-separated subset of the models")
     p.add_argument("--qubits", type=int, default=6)
     p.add_argument("--sizes", default="50,100,200,400,full")
     p.add_argument("--seeds", type=int, default=10)
     p.add_argument("--out", default="results/final")
     p.set_defaults(func=cmd_final)
+
+    p = sub.add_parser("reproduce", help="rerun every study that makes a table or figure")
+    p.add_argument("--skip", default=None, help="comma-separated commands to leave out")
+    p.set_defaults(func=cmd_reproduce)
+
+    p = sub.add_parser("scaling",
+                       help="kernel concentration and accuracy from 4 to 14 qubits")
+    p.add_argument("--qubits", default="4,6,8,10,12,14")
+    p.add_argument("--n-train", type=int, default=400)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--out", default="results/scaling")
+    p.set_defaults(func=cmd_scaling)
+
+    p = sub.add_parser("confidence",
+                       help="conformal prediction sets and accuracy by chemical similarity")
+    p.add_argument("--qubits", type=int, default=6)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--out", default="results/confidence")
+    p.set_defaults(func=cmd_confidence)
 
     p = sub.add_parser("hardware-svm",
                        help="train and test a projected-kernel SVM on an IBM Quantum device")
