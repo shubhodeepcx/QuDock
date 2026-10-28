@@ -47,7 +47,13 @@ DESCRIPTORS = {
 def descriptors(smiles) -> np.ndarray:
     """RDKit descriptors in ``DESCRIPTORS`` as a float matrix."""
     mols = [Chem.MolFromSmiles(s) for s in smiles]
+    for s, m in zip(smiles, mols):
+        if m is None:
+            raise ValueError(f"could not parse SMILES: {s}")
     return np.array([[f(m) for f in DESCRIPTORS.values()] for m in mols], dtype=np.float64)
+
+
+METHODS = ("pca", "pls")
 
 
 class FeaturePipeline:
@@ -55,6 +61,10 @@ class FeaturePipeline:
 
     def __init__(self, n_qubits: int = 4, radius: int = 2, n_bits: int = 2048, seed: int = 0,
                  method: str = "pca", use_descriptors: bool = False):
+        if method not in METHODS:
+            raise ValueError(f"method must be one of {METHODS}, got {method!r}")
+        if n_qubits < 1:
+            raise ValueError(f"n_qubits must be at least 1, got {n_qubits}")
         self.n_qubits = n_qubits
         self.radius = radius
         self.n_bits = n_bits
@@ -90,4 +100,6 @@ class FeaturePipeline:
     @property
     def explained_variance(self) -> float:
         """Fraction of fingerprint variance kept by the PCA components."""
+        if self.method != "pca":
+            raise AttributeError("explained_variance is only defined for PCA compression")
         return float(self.pca_.explained_variance_ratio_.sum())
