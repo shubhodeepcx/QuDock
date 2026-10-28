@@ -100,6 +100,11 @@ def murcko_scaffold(smiles: str) -> str:
     return MurckoScaffold.MurckoScaffoldSmiles(smiles=smiles, includeChirality=False)
 
 
+def _check_frac(test_frac: float) -> None:
+    if not 0 < test_frac < 1:
+        raise ValueError(f"test_frac must be between 0 and 1, got {test_frac}")
+
+
 @dataclass
 class Split:
     train: np.ndarray
@@ -113,6 +118,7 @@ def scaffold_split(smiles: list[str] | pd.Series, test_frac: float = 0.2) -> Spl
     are assigned largest first to train until it is full, so the test set gets
     the rarer scaffolds, which is the harder and more realistic setting.
     """
+    _check_frac(test_frac)
     groups: dict[str, list[int]] = {}
     for i, s in enumerate(smiles):
         groups.setdefault(murcko_scaffold(s), []).append(i)
@@ -128,6 +134,7 @@ def scaffold_split(smiles: list[str] | pd.Series, test_frac: float = 0.2) -> Spl
 
 def random_split(labels, test_frac: float = 0.2, seed: int = 0) -> Split:
     """Stratified random split."""
+    _check_frac(test_frac)
     idx = np.arange(len(labels))
     train, test = train_test_split(idx, test_size=test_frac, stratify=labels, random_state=seed)
     return Split(np.sort(train), np.sort(test))
