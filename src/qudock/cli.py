@@ -6,15 +6,16 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from qudock import __version__
+from qudock import __version__, provenance
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
 from qudock.conformal import run_confidence_study
-from qudock.data import DATASETS, load_bace, random_split, scaffold_split
+from qudock.data import DATASETS, DEFAULT_CACHE, load_bace, random_split, scaffold_split
 from qudock.explain import run_explain_study, summarise_explain
 from qudock.final_study import FinalConfig, compare_pairs, run_final_study, summarise_final
 from qudock.hardware import HardwareConfig, reanalyse, run_hardware_study, save_hardware_study
@@ -445,6 +446,10 @@ def main(argv=None):
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,
                         format="%(levelname)s %(message)s")
     args.func(args)
+    if getattr(args, "out", None) and Path(args.out).is_dir():
+        config = {k: v for k, v in vars(args).items() if k != "func"}
+        provenance.write(Path(args.out), command=["qudock", *(argv or sys.argv[1:])],
+                         config=config, data_files=sorted(DEFAULT_CACHE.glob("*.csv")))
 
 
 if __name__ == "__main__":
