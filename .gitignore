@@ -66,3 +66,13 @@ Thumbs.db
 
 # mkdocs build output
 site/
+
+# LaTeX build output
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.pdf

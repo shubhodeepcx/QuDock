@@ -1,0 +1,178 @@
+% Draft preprint. Every number comes from a file in results/; regenerate with `qudock reproduce`.
+% Build: cd paper && latexmk -pdf qudock.tex
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage[numbers]{natbib}
+
+\title{Do quantum kernels help find Alzheimer's drug candidates?\\
+\large A scaffold-split benchmark of quantum and classical models for BACE-1 inhibition,\\
+with measurements on IBM Quantum hardware}
+\author{Shubhodeep Chatterjee \and Srijita Banerjee \and Rounak Pal\\
+\small Team BlackOut, VTU-Qiskit Fall Fest 2026}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Quantum kernel methods are often proposed for drug discovery on the grounds that they may learn
+more from fewer labelled molecules. We test that claim on inhibition of $\beta$-secretase~1
+(BACE-1), an Alzheimer's disease target, under conditions designed to make a fair comparison:
+Bemis--Murcko scaffold splits, identical features for quantum and classical models,
+hyperparameters tuned by inner cross-validation, multiple seeds and paired statistics. We
+evaluate the ZZ fidelity kernel on unsupervised (PCA) and supervised (PLS) angles with a
+bandwidth tuned by kernel-target alignment, the projected quantum kernel, a feature map whose
+own parameters are trained, a hybrid quantum + Tanimoto kernel, and a new feature map whose
+entanglement follows each molecule's pharmacophore graph. We measure kernels on simulated noisy
+devices and on IBM's \texttt{ibm\_marrakesh}. Better features and tuned bandwidths lift the
+quantum kernel substantially (ROC-AUC 0.708 to 0.743 at full size), and a hybrid kernel comes
+within 0.006 of the best classical model, but no quantum model beats the strongest classical
+baseline on BACE-1 or on blood-brain barrier penetration (BBBP). Hardware noise distorts the
+kernel by 17.5\% yet preserves its shape (correlation 0.996 with the exact kernel). We release
+the pipeline, a multi-objective screening tool and QuDock-Bench, a fixed protocol for scoring
+any molecule classifier on BACE, BBBP and ClinTox.
+\end{abstract}
+
+\section{Introduction}
+Quantum kernels embed data in the Hilbert space of a parametrised circuit and compare points by
+state overlap~\cite{havlicek2019}. Their appeal for chemistry rests on the hope that such
+embeddings capture structure classical kernels miss, and that this pays off when labelled data
+are scarce. Testing that hope requires care: random splits leak near-duplicate molecules
+between training and test sets, quantum models are often compared against untuned classical
+baselines, and results on a single seed are noisy~\cite{bowles2024}.
+
+We ask a narrow question carefully: on BACE-1 inhibition~\cite{wu2018}, does any quantum kernel
+we can build, simulate and run outperform well-tuned classical models on unseen chemical
+scaffolds? Our contributions are
+(i) a fair comparison across five families of quantum kernels and six classical baselines,
+(ii) a pharmacophore-graph feature map in which entanglement encodes molecular structure,
+(iii) noise studies on simulated and real IBM devices,
+(iv) calibrated confidence and atom-level explanations for the quantum models, and
+(v) QuDock-Bench, a reusable benchmark with a plugin interface.
+
+\section{Methods}
+\paragraph{Data.} MoleculeNet BACE (1{,}513 molecules; 1{,}210 train and 303 test after a
+scaffold split, rarest scaffolds in the test set). SMILES are canonicalised and molecules with
+conflicting labels removed. BBBP (1{,}965 molecules) and ClinTox serve as second and third tasks.
+
+\paragraph{Features.} ECFP4 fingerprints (2{,}048 bits), optionally with ten RDKit descriptors,
+are standardised and compressed to one value per qubit by PCA or by PLS fit on training labels,
+then rescaled to $[0,\pi]$.
+
+\paragraph{Quantum kernels.}
+\emph{ZZ fidelity kernel}: $k(x,y)=|\langle\phi(x)|\phi(y)\rangle|^2$ for the ZZ feature map with
+linear entanglement and bandwidth $b$ scaling the angles~\cite{shaydulin2022}; $b$ is chosen by
+kernel-target alignment on training data.
+\emph{Projected kernel}~\cite{huang2021}: an RBF kernel on single-qubit Pauli expectations.
+\emph{Trainable map}~\cite{hubregtsen2022}: per-qubit encoding weights, per-pair entangling
+weights and RY rotations, trained by alignment from the ZZ map as starting point.
+\emph{Hybrid}: $w\,k_Q + (1-w)\,k_{\text{Tanimoto}}$ with $w$ chosen by inner CV.
+\emph{Pharmacophore-graph map} (this work): six qubits, one per pharmacophore family (donor,
+acceptor, positive and negative ionizable, aromatic, hydrophobe). Qubit $q$ is rotated by
+$x_q=\pi c_q/(c_q+2)$ for $c_q$ features of that family, and every pair is entangled by a ZZ
+rotation of strength $w_{qr}=\pi s_{qr}/(s_{qr}+1)$, where
+$s_{qr}=\sum \exp(-d/2)$ sums over feature pairs at topological distance $d$. The entanglement
+pattern therefore differs per molecule and follows its pharmacophore geometry.
+
+\paragraph{Scaling tools.} A Nystr\"om map $\phi(x)=k(x,L)K_{LL}^{-1/2}$ with $m$ landmarks reduces
+kernel evaluations from $n^2/2$ to $nm$; classical shadows~\cite{huang2020} estimate all one-
+and two-qubit Pauli expectations from the same randomised measurements.
+
+\paragraph{Evaluation.} Test ROC-AUC, PR-AUC, enrichment at 1\% and 5\%, and BEDROC. Every model
+sees the same molecules; training subsets are stratified and seeded; differences are tested by
+paired bootstrap on the test set or Wilcoxon tests over seeds.
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\caption{Mean test ROC-AUC over 10 seeds on BACE (6 qubits).}
+\label{tab:final}
+\small
+\begin{tabular}{rcccccc}
+\toprule
+$n_\text{train}$ & QSVC PCA & QSVC PLS & SVM-RBF PLS & Hybrid PCA & Tanimoto SVM & RF fingerprint\\
+\midrule
+50 & 0.607 & 0.656 & 0.675 & 0.651 & 0.655 & 0.684\\
+100 & 0.647 & 0.687 & 0.710 & 0.702 & 0.712 & 0.735\\
+200 & 0.663 & 0.712 & 0.737 & 0.726 & 0.742 & 0.756\\
+400 & 0.693 & 0.732 & 0.742 & 0.757 & 0.762 & 0.769\\
+1{,}210 & 0.708 & 0.743 & 0.769 & 0.776 & 0.781 & 0.782\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Better features help the quantum kernel; the quantum kernel does not beat its
+classical twin.} Supervised PLS angles and an alignment-tuned bandwidth raise QSVC by 0.035 to
+0.049 ROC-AUC at every training size (Table~\ref{tab:final}). On the very same PLS features,
+however, SVM-RBF remains ahead by 0.026 at full size (paired bootstrap $p=0.03$). The hybrid
+kernel keeps a non-zero quantum weight under inner CV and reaches 0.776, statistically level
+with the Tanimoto SVM ($p=0.27$) but not above it. On BBBP the picture repeats: hybrid 0.827
+against 0.826 (Tanimoto SVM) and 0.829 (Random Forest).
+
+\paragraph{No small-data advantage.} With 25 or 50 training molecules the quantum kernel is the
+weakest model in the first-round benchmark, contrary to the motivating hypothesis.
+
+\paragraph{Concentration is real and manageable.} With a fixed bandwidth the spread of
+off-diagonal kernel values falls 11-fold from 4 to 14 qubits; alignment-tuned bandwidths keep it
+9 to 17 times larger and recover 0.03 to 0.09 ROC-AUC at every width.
+
+\paragraph{Training the feature map helps a little.} Alignment-trained maps win 14 of 20 runs,
++0.012 ROC-AUC on average (Wilcoxon $p=0.03$), with the largest gain at 100 molecules (+0.021).
+
+\paragraph{Encoding chemistry in the entanglement does not add signal.} The pharmacophore-graph
+kernel ties an RBF SVM on exactly the same 21 numbers (0.673 vs 0.666 at 400 molecules; 0.656 vs
+0.682 at full size) and loses to a Random Forest on them (0.745).
+
+\paragraph{Hardware.} On \texttt{ibm\_marrakesh} (4 qubits, 12 molecules, 66 circuits, 1{,}024
+shots) the measured kernel deviates from the exact kernel by 17.5\% (FakeTorino simulation:
+10.3\%) yet correlates at 0.996, so noise mostly shrinks kernel values uniformly and leaves the
+ranking intact. In simulation, device noise contributes 8--13\% kernel error that more shots do
+not remove, while test ROC-AUC stays within 0.62--0.66 across all settings.
+
+\paragraph{Confidence and explanations.} Conformal prediction calibrated on rare training
+scaffolds delivers 66--86\% coverage when 90\% is requested under a scaffold split, an honest
+measure of how new the test chemistry is. Occlusion-based atom attributions are faithful:
+removing the highlighted fifth of atoms costs 0.563 score against 0.381 for random atoms while
+breaking fewer fingerprint bits.
+
+\paragraph{Multi-objective screening.} Ranking the BACE test set by activity alone gives ROC-AUC
+0.739; ranking by a geometric mean of calibrated activity, predicted brain penetration and QED
+gives 0.703, the expected cost of selecting for molecules that can also reach the brain.
+
+\paragraph{QuDock-Bench.} Table~\ref{tab:bench} scores seven models on three tasks under one
+protocol. Classical models take the top three places on every task; the best quantum entry,
+the hybrid kernel, ranks fourth. The gap is largest on ClinTox, where only 6\% of molecules are
+positive and the quantum kernels on six compressed angles fall to 0.52--0.69 while fingerprint
+models reach 0.84--0.87. At full training size the seeds only change cross-validation folds and
+model randomness, so several intervals are close to zero. The Random Forest and gradient
+boosting entries use balanced class weights and the SVM entries do not; the unbalanced Tanimoto
+SVM still ranks first.
+
+% QuDock-Bench leaderboard: regenerate with python paper/make_tables.py
+\input{bench_table}
+
+\section{Discussion}
+Across five families of quantum kernels, two datasets, simulated and real hardware, we find the
+same pattern: quantum kernels become competitive when given good features and tuned
+bandwidths, and hybrids with a classical kernel come within statistical noise of the best
+classical model, but none surpasses it. The gains we measured come from features, bandwidth
+selection and kernel training, all of which have classical analogues. We consider this a useful
+negative result, and we release the benchmark so that future quantum feature maps can be judged
+on the same footing.
+
+\paragraph{Limitations.} Six to fourteen qubits; one hardware run of 12 molecules for the kernel
+study; no graph neural network baseline; PLS compression sees training labels, which makes
+inner-CV estimates of PLS-based models slightly optimistic.
+
+\paragraph{Code and data.} \url{https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout}.
+Every table is regenerated by \texttt{qudock reproduce}; each results folder carries a
+provenance record with the code version, package versions and data hashes.
+
+\bibliographystyle{unsrtnat}
+\bibliography{refs}
+\end{document}
