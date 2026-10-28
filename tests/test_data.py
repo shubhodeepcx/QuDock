@@ -44,6 +44,25 @@ def test_random_split_is_stratified_and_seeded():
     assert sum(labels[i] for i in a.test) == 10
 
 
+def test_download_uses_cache_and_cleans_up_failures(tmp_path, monkeypatch):
+    import urllib.request
+
+    from qudock.data import download
+
+    cached = tmp_path / "x.csv"
+    cached.write_text("a\n1\n")
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: pytest.fail("no network"))
+    assert download("http://example.invalid/x.csv", cached) == cached
+
+    def broken(*args, **kwargs):
+        raise OSError("offline")
+
+    monkeypatch.setattr(urllib.request, "urlopen", broken)
+    with pytest.raises(RuntimeError, match="could not download"):
+        download("http://example.invalid/y.csv", tmp_path / "y.csv")
+    assert list(tmp_path.iterdir()) == [cached]
+
+
 @pytest.mark.parametrize("frac", [0.1, 0.2, 0.3])
 def test_scaffold_split_size_is_close_to_requested(frac):
     split = scaffold_split(SMILES, test_frac=frac)

@@ -24,12 +24,23 @@ log = logging.getLogger(__name__)
 RDLogger.DisableLog("rdApp.*")
 
 
-def download(url: str, path: Path) -> Path:
-    """Download a dataset once and return its local path."""
+def download(url: str, path: Path, timeout: float = 60) -> Path:
+    """Download a dataset once and return its local path.
+
+    The file is written next to its final name and renamed at the end, so an
+    interrupted download never leaves a half-written CSV in the cache.
+    """
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         log.info("downloading %s", url)
-        urllib.request.urlretrieve(url, path)
+        partial = path.with_name(path.name + ".part")
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as response:
+                partial.write_bytes(response.read())
+        except OSError as err:
+            partial.unlink(missing_ok=True)
+            raise RuntimeError(f"could not download {url}: {err}") from err
+        partial.replace(path)
     return path
 
 
