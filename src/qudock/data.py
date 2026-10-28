@@ -18,6 +18,8 @@ BACE_URL = f"{MOLECULENET}/bace.csv"
 # second task: does the molecule cross the blood-brain barrier, which any
 # Alzheimer's drug has to do, so the same pipeline can be checked on it
 BBBP_URL = f"{MOLECULENET}/BBBP.csv"
+# third task: did the molecule fail clinical trials for toxicity
+CLINTOX_URL = f"{MOLECULENET}/clintox.csv.gz"
 DEFAULT_CACHE = Path("data/cache")
 
 log = logging.getLogger(__name__)
@@ -93,7 +95,13 @@ def load_bbbp(cache_dir: Path | str = DEFAULT_CACHE) -> pd.DataFrame:
                  smiles_col="smiles", label_col="p_np")
 
 
-DATASETS = {"bace": load_bace, "bbbp": load_bbbp}
+def load_clintox(cache_dir: Path | str = DEFAULT_CACHE) -> pd.DataFrame:
+    """Return the cleaned ClinTox dataset (label 1 = failed trials for toxicity)."""
+    return clean(pd.read_csv(download(CLINTOX_URL, Path(cache_dir) / "clintox.csv.gz")),
+                 smiles_col="smiles", label_col="CT_TOX")
+
+
+DATASETS = {"bace": load_bace, "bbbp": load_bbbp, "clintox": load_clintox}
 
 
 def murcko_scaffold(smiles: str) -> str:
