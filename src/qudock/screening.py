@@ -40,6 +40,8 @@ def paired_bootstrap(y_true, score_a, score_b, n_boot: int = 2000, seed: int = 0
         if len(np.unique(y_true[i])) == 2:
             diffs.append(roc_auc_score(y_true[i], a[i]) - roc_auc_score(y_true[i], b[i]))
     diffs = np.array(diffs)
+    if not len(diffs):
+        raise ValueError("every bootstrap resample had a single class; need both labels")
     p = 2 * min((diffs <= 0).mean(), (diffs >= 0).mean())
     lo, hi = np.quantile(diffs, [0.025, 0.975])
     return {"delta": roc_auc_score(y_true, a) - roc_auc_score(y_true, b),
