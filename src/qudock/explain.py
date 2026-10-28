@@ -189,11 +189,11 @@ def run_explain_study(n_qubits: int = 6, n_train: int = 400, n_molecules: int = 
         n_drop = max(1, mol.GetNumAtoms() // 5)
         top = set(np.argsort(-exp.atom_weights * np.sign(exp.score))[:n_drop])
         random = set(rng.choice(mol.GetNumAtoms(), n_drop, replace=False))
+        atoms_of = bit_atoms(mol, pipe.radius, pipe.n_bits)
         drops = {}
         for name, atoms in [("top_atoms", top), ("random_atoms", random)]:
             raw = pipe._raw([smi])
-            hit = [bit for bit, bit_set in bit_atoms(mol, pipe.radius, pipe.n_bits).items()
-                   if bit_set & atoms]
+            hit = [bit for bit, bit_set in atoms_of.items() if bit_set & atoms]
             raw[0, hit] = 0.0
             X = np.hstack([angles_from_raw(pipe, raw), raw[:, :pipe.n_bits]])
             drops[name] = float(np.sign(exp.score) *
