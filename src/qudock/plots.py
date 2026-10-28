@@ -263,3 +263,30 @@ def explain_study(results: pd.DataFrame, path):
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+GRAPH_LABELS = {"graph_quantum": "Pharmacophore-graph quantum kernel",
+                "graph_rbf": "SVM-RBF, same graph numbers",
+                "graph_rf": "Random Forest, same graph numbers",
+                "qsvc_pls": "ZZ map on 6 PLS angles"}
+
+
+def graph_study(results: pd.DataFrame, path):
+    """Test ROC-AUC against training size for the graph map and its classical twins."""
+    summary = results.groupby(["n_train", "model"])["roc_auc"].agg(["mean", "sem"]).reset_index()
+    fig, ax = plt.subplots(figsize=(6.2, 4.2))
+    for model, label in GRAPH_LABELS.items():
+        g = summary[summary["model"] == model].sort_values("n_train")
+        if g.empty:
+            continue
+        quantum = model in ("graph_quantum", "qsvc_pls")
+        ax.errorbar(g["n_train"], g["mean"], yerr=1.96 * g["sem"].fillna(0), marker="o",
+                    capsize=3, label=label, lw=2.2 if quantum else 1.3, ls="-" if quantum else "--")
+    ax.set_xscale("log")
+    ax.set_xlabel("training molecules")
+    ax.set_ylabel("test ROC-AUC (scaffold split)")
+    ax.grid(alpha=0.3)
+    ax.legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)

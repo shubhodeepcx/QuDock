@@ -27,3 +27,14 @@ def test_explain_study_writes_a_png(tmp_path):
     path = tmp_path / "explain.png"
     explain_study(results, path)
     assert path.read_bytes()[:4] == b"\x89PNG"
+
+
+def test_graph_study_plot(tmp_path):
+    import pandas as pd
+
+    from qudock.plots import graph_study
+
+    runs = pd.DataFrame({"model": ["graph_quantum", "graph_rbf"] * 2, "n_train": [100] * 4,
+                         "seed": [0, 0, 1, 1], "roc_auc": [0.7, 0.68, 0.72, 0.69]})
+    graph_study(runs, tmp_path / "g.png")
+    assert (tmp_path / "g.png").stat().st_size > 0
