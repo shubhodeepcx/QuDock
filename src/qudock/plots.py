@@ -125,7 +125,10 @@ def final_study(summary: pd.DataFrame, path):
 
 
 def confidence_study(sets: pd.DataFrame, domain: pd.DataFrame, path):
-    """Left: promised vs measured coverage. Right: ROC-AUC against similarity to the training set."""
+    """Left: promised vs measured coverage.
+
+    Right: ROC-AUC against similarity to the training set.
+    """
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
     axes[0].plot([0.65, 0.95], [0.65, 0.95], color="0.4", ls=":", label="promised")
     for model, g in sets.groupby("model", sort=False):
