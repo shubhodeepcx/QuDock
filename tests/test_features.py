@@ -46,3 +46,22 @@ def test_pls_compression_uses_labels_and_stays_in_range():
 def test_pls_without_labels_is_refused():
     with pytest.raises(ValueError):
         FeaturePipeline(n_qubits=2, method="pls").fit(["CCO", "CCN", "CCC"])
+
+
+def test_descriptors_reject_bad_smiles():
+    from qudock.features import descriptors
+
+    with pytest.raises(ValueError, match="nope"):
+        descriptors(["CCO", "nope"])
+
+
+@pytest.mark.parametrize("kwargs", [{"method": "tsne"}, {"n_qubits": 0}])
+def test_pipeline_rejects_bad_settings(kwargs):
+    with pytest.raises(ValueError):
+        FeaturePipeline(**kwargs)
+
+
+def test_explained_variance_is_pca_only():
+    pipe = FeaturePipeline(n_qubits=2, method="pls").fit(TRAIN, [0, 1] * 4)
+    with pytest.raises(AttributeError, match="PCA"):
+        _ = pipe.explained_variance
