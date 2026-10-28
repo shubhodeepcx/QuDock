@@ -455,6 +455,45 @@ The gap closes as the quantum side gets better features, a tuned bandwidth, a hy
 a trained feature map: from -0.031 to -0.002. It has not crossed zero. That is our result, and
 we would rather show the chart than hide it.
 
+### Does putting chemistry into the circuit help? (`qudock graph`)
+
+The ZZ map entangles neighbouring qubits in an arbitrary order on compressed fingerprint
+angles. Here each qubit is a pharmacophore family (donor, acceptor, positive and negative
+ionizable, aromatic, hydrophobe), and every pair of qubits is entangled in proportion to how
+close those groups sit in the molecule, so the entanglement pattern follows each molecule's
+own structure. The fair comparison is against classical models on exactly the same 21 numbers.
+
+| Training molecules | Graph quantum kernel | SVM-RBF, same numbers | Random Forest, same numbers | ZZ map on PLS |
+| --: | --: | --: | --: | --: |
+| 100 | 0.648 | 0.663 | 0.680 | 0.680 |
+| 400 | 0.673 | 0.666 | 0.716 | 0.725 |
+| 1,210 | 0.656 | 0.682 | 0.745 | 0.743 |
+
+The structured map ties the RBF kernel on the same information and loses to a Random Forest.
+Twenty-one interpretable pharmacophore numbers are enough for a Random Forest to match the
+best fingerprint models (0.745), but the quantum kernel does not add anything on top of them.
+
+![Graph feature map](results/graph/graph_study.png)
+
+### Ranking for an Alzheimer's project (`qudock screen`)
+
+A BACE-1 hit only matters if it also reaches the brain and looks like a drug. `qudock screen`
+gives every molecule a calibrated activity p-value from the hybrid quantum + Tanimoto model,
+the probability of crossing the blood-brain barrier (Random Forest trained on BBBP), RDKit's
+QED, PAINS alerts and an applicability-domain flag, and ranks by a weighted geometric mean.
+
+Checked on the BACE scaffold test set, where the activity labels are known:
+
+| Ranking by | ROC-AUC | PR-AUC | BEDROC |
+| :-- | --: | --: | --: |
+| Activity score only | 0.739 | 0.774 | 0.849 |
+| Combined (activity x BBB x QED) | 0.703 | 0.716 | 0.670 |
+
+Ranking for brain penetration and drug-likeness costs some activity enrichment, which is the
+trade-off a real project makes on purpose: a potent inhibitor that cannot reach the brain is
+not an Alzheimer's drug. Both rankings are written to
+[`results/screen/`](results/screen) so the trade-off can be inspected molecule by molecule.
+
 ---
 
 ## 🎬 Demo
