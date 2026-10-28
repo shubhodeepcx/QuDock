@@ -122,4 +122,6 @@ def bootstrap_ci(y_true, score, n_boot: int = 1000, seed: int = 0, alpha: float 
         i = rng.integers(0, len(y_true), len(y_true))
         if len(np.unique(y_true[i])) == 2:
             aucs.append(roc_auc_score(y_true[i], score[i]))
+    if not aucs:
+        raise ValueError("every bootstrap resample had a single class; need both labels")
     return tuple(np.quantile(aucs, [alpha / 2, 1 - alpha / 2]))
