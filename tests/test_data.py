@@ -44,6 +44,14 @@ def test_random_split_is_stratified_and_seeded():
     assert sum(labels[i] for i in a.test) == 10
 
 
+@pytest.mark.parametrize("frac", [0, 1, -0.2, 1.5])
+def test_bad_test_fraction_is_refused(frac):
+    with pytest.raises(ValueError, match="test_frac"):
+        scaffold_split(SMILES, test_frac=frac)
+    with pytest.raises(ValueError, match="test_frac"):
+        random_split([0, 1] * 5, test_frac=frac)
+
+
 def test_download_uses_cache_and_cleans_up_failures(tmp_path, monkeypatch):
     import urllib.request
 
