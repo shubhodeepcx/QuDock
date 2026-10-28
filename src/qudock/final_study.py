@@ -7,6 +7,8 @@ Compared on the same scaffold split, training sizes and seeds:
   next to SVM-RBF and Random Forest on the same PLS angles
 * projected quantum kernel on PLS angles
 * Tanimoto SVM and Random Forest on the full fingerprint (the classical ceiling)
+* gradient boosting on the fingerprint plus RDKit descriptors, the strongest
+  off-the-shelf tabular baseline
 * hybrid: weight * quantum + (1 - weight) * Tanimoto, weight chosen by inner CV,
   with the quantum part on PCA angles (unsupervised) or PLS angles
 
@@ -20,21 +22,23 @@ import logging
 import time
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
 from qudock.benchmark import subsample
 from qudock.classical import make_classical, scores
 from qudock.data import load_bace, scaffold_split
-from qudock.features import FeaturePipeline, morgan_fingerprints
+from qudock.features import FeaturePipeline, descriptors, morgan_fingerprints
 from qudock.kernels import KernelSVM, stack, tune_bandwidth
 from qudock.screening import paired_bootstrap, screening_metrics
 
 log = logging.getLogger(__name__)
 
 MODELS = ["svm_rbf_pca", "rf_pca", "qsvc_pca", "svm_rbf_pls", "rf_pls", "qsvc_pls",
-          "projected_pls", "tanimoto_svm", "rf_fingerprint", "hybrid_pca", "hybrid_pls"]
+          "projected_pls", "tanimoto_svm", "rf_fingerprint", "gb_fingerprint", "hybrid_pca",
+          "hybrid_pls"]
 
 
 @dataclass
@@ -60,6 +64,11 @@ def build(name: str, seed: int, n: int, n_qubits: int, bw_pca: float, bw_pls: fl
     if name == "rf_fingerprint":
         rf = RandomForestClassifier(n_estimators=500, random_state=seed, n_jobs=-1)
         return GridSearchCV(rf, {"min_samples_leaf": [1, 3]}, cv=_cv(seed, n), scoring="roc_auc")
+    if name == "gb_fingerprint":
+        gb = HistGradientBoostingClassifier(max_iter=300, random_state=seed)
+        grid = {"learning_rate": [0.05, 0.1], "max_leaf_nodes": [15, 31],
+                "l2_regularization": [0.0, 1.0]}
+        return GridSearchCV(gb, grid, cv=_cv(seed, n), scoring="roc_auc")
     base = {"n_angles": n_qubits, "reps": reps, "seed": seed}
     grids = {
         "qsvc_pca": ("quantum", {"C": [0.1, 1, 10], "bandwidth": [bw_pca]}),
@@ -76,14 +85,16 @@ def build(name: str, seed: int, n: int, n_qubits: int, bw_pca: float, bw_pls: fl
     return GridSearchCV(KernelSVM(kind=kind, **base), grid, cv=_cv(seed, n), scoring="roc_auc")
 
 
-def inputs(name: str, pca, pls, fp):
-    """(train, test) inputs for a model from the PCA, PLS and fingerprint features."""
+def inputs(name: str, pca, pls, fp, desc=None):
+    """(train, test) inputs for a model from the PCA, PLS, fingerprint and descriptor features."""
     if name in ("svm_rbf_pca", "rf_pca"):
         return pca
     if name in ("svm_rbf_pls", "rf_pls"):
         return pls
     if name == "rf_fingerprint":
         return fp
+    if name == "gb_fingerprint":
+        return np.hstack([fp[0], desc[0]]), np.hstack([fp[1], desc[1]])
     angles = pca if name in ("qsvc_pca", "hybrid_pca") else pls
     return stack(angles[0], fp[0]), stack(angles[1], fp[1])
 
@@ -95,6 +106,7 @@ def run_final_study(cfg: FinalConfig, df: pd.DataFrame | None = None):
     smi_tr, y_tr = df["smiles"].values[split.train], df["label"].values[split.train]
     smi_te, y_te = df["smiles"].values[split.test], df["label"].values[split.test]
     fp_all_tr, fp_te = morgan_fingerprints(smi_tr), morgan_fingerprints(smi_te)
+    desc_all_tr, desc_te = descriptors(smi_tr), descriptors(smi_te)
 
     rows, full_scores = [], {}
     for size in cfg.sizes:
@@ -107,11 +119,12 @@ def run_final_study(cfg: FinalConfig, df: pd.DataFrame | None = None):
                                        use_descriptors=True)
             pls = pls_pipe.fit_transform(smi_tr[keep], y_tr[keep]), pls_pipe.transform(smi_te)
             fp = fp_all_tr[keep], fp_te
+            desc = desc_all_tr[keep], desc_te
             bw_pca = tune_bandwidth(pca[0], y_tr[keep], cfg.n_qubits, cfg.reps, seed=seed)
             bw_pls = tune_bandwidth(pls[0], y_tr[keep], cfg.n_qubits, cfg.reps, seed=seed)
             for name in cfg.models:
                 start = time.perf_counter()
-                X_tr, X_te = inputs(name, pca, pls, fp)
+                X_tr, X_te = inputs(name, pca, pls, fp, desc)
                 model = build(name, seed, n, cfg.n_qubits, bw_pca, bw_pls, cfg.reps)
                 model.fit(X_tr, y_tr[keep])
                 s = scores(model, X_te)

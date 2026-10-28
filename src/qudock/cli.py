@@ -155,7 +155,8 @@ def cmd_hardware(args):
 
 
 PAIRS = [("hybrid_pca", "tanimoto_svm"), ("hybrid_pls", "tanimoto_svm"),
-         ("hybrid_pls", "rf_fingerprint"), ("qsvc_pls", "qsvc_pca"),
+         ("hybrid_pls", "rf_fingerprint"), ("hybrid_pls", "gb_fingerprint"),
+         ("qsvc_pls", "qsvc_pca"),
          ("qsvc_pls", "svm_rbf_pls"), ("qsvc_pls", "rf_pls"), ("qsvc_pls", "svm_rbf_pca"),
          ("qsvc_pls", "rf_pca"), ("projected_pls", "qsvc_pls")]
 
@@ -266,7 +267,8 @@ def cmd_confidence(args):
     print(f"wrote results to {out}/")
 
 
-BBBP_MODELS = ("qsvc_pca,qsvc_pls,svm_rbf_pls,rf_pls,tanimoto_svm,rf_fingerprint,hybrid_pca")
+BBBP_MODELS = ("qsvc_pca,qsvc_pls,svm_rbf_pls,rf_pls,tanimoto_svm,rf_fingerprint,"
+               "gb_fingerprint,hybrid_pca")
 
 REPRODUCE = [
     ("benchmark", ["--out", "results/full"]),
