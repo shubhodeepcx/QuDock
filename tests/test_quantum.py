@@ -45,3 +45,12 @@ def test_qsvc_learns_a_separable_problem():
     y = (X[:, 0] > np.pi / 2).astype(int)
     model = QSVC(C=10, reps=1, bandwidth=0.5).fit(X[:40], y[:40])
     assert roc_auc_score(y[40:], model.decision_function(X[40:])) > 0.9
+
+
+def test_state_cache_can_be_cleared():
+    from qudock.quantum import clear_state_cache, state_cache_size
+
+    ZZKernel(2, bandwidth=0.123)(np.array([[0.1, 0.2], [0.3, 0.4]]))
+    assert state_cache_size() >= 2
+    clear_state_cache()
+    assert state_cache_size() == 0
