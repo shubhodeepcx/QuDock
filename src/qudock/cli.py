@@ -16,7 +16,7 @@ import pandas as pd
 from qudock import __version__, provenance
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
 from qudock.campaign import campaign_verdict, run_campaign_study, summarise_campaign
-from qudock.conformal import run_confidence_study
+from qudock.conformal import confidence_needed, run_confidence_study, run_tradeoff_study
 from qudock.cost import cost_table, run_cost_study
 from qudock.data import DATASETS, DEFAULT_CACHE, load_bace, random_split, scaffold_split
 from qudock.explain import run_explain_study, summarise_explain
@@ -26,6 +26,7 @@ from qudock.noise_study import NoiseConfig, run_noise_study
 from qudock.plots import (
     campaign_study,
     confidence_study,
+    confidence_tradeoff,
     cost_study,
     explain_study,
     final_study,
@@ -328,11 +329,17 @@ def cmd_confidence(args):
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     sets, domain = run_confidence_study(n_qubits=args.qubits, seed=args.seed)
+    tradeoff = run_tradeoff_study(n_qubits=args.qubits, seed=args.seed)
+    tradeoff.to_csv(out / "tradeoff.csv", index=False)
+    needed = confidence_needed(tradeoff)
+    needed.to_csv(out / "confidence_needed.csv", index=False)
+    confidence_tradeoff(tradeoff, out / "confidence_tradeoff.png")
     sets.to_csv(out / "conformal_sets.csv", index=False)
     domain.to_csv(out / "applicability_domain.csv", index=False)
     confidence_study(sets, domain, out / "confidence_study.png")
     print(sets.round(3).to_string(index=False))
     print(domain.round(3).to_string(index=False))
+    print(needed.round(3).to_string(index=False))
     print(f"wrote results to {out}/")
 
 

@@ -404,6 +404,34 @@ been wrong. Accuracy tracks the same thing: on the third of test molecules least
 training set, every model loses 0.05 to 0.10 ROC-AUC. The app shows this similarity for each
 molecule you screen.
 
+#### Can the shortfall be fixed? We tried, and it cannot
+
+The standard correction for this situation is weighted conformal prediction (Tibshirani et al.,
+2019): count each calibration molecule in proportion to how chemically similar it is to the one
+being predicted, which is a proxy for the likelihood ratio under covariate shift. We implemented
+it (`ConformalClassifier(..., similarity_bandwidth=h)`) and measured it rather than assuming it
+helps.
+
+![Confidence trade-off](results/confidence/confidence_tradeoff.png)
+
+| Method | Ask for | Real coverage | Commits to a label |
+| :-- | --: | --: | --: |
+| Hybrid, plain calibration | 0.99 | 0.904 | 0.426 |
+| Hybrid, similarity-weighted | 0.97 | 0.997 | 0.013 |
+| Tanimoto SVM, plain | 0.95 | 0.904 | 0.389 |
+| Tanimoto SVM, similarity-weighted | 0.90 | 0.904 | 0.370 |
+
+Weighting does raise coverage at any requested confidence, but only by refusing to commit: for
+the hybrid kernel it goes from 96% single-label predictions to 68% at the 90% setting, and past
+0.97 it answers "don't know" for everything. The right panel above is the point: plotted against
+how often the model actually commits, all four curves fall on the same line. The weighting moves
+you along that curve; it does not lift it.
+
+So the honest conclusion is that under scaffold shift there is no free lunch in calibration. If
+you need 90% real coverage on new chemistry, you must ask for about 98% and accept a "don't
+know" on a third to a half of molecules. That is a usable instruction for a screening team, and
+it is more useful than a method that looks calibrated because it never commits.
+
 ### Which atoms drove the prediction? (`qudock explain`)
 
 A kernel SVM has no coefficients to read: its decision value is a sum over training molecules,
@@ -499,6 +527,9 @@ test set is never in the pool.
 | Hybrid quantum, greedy | 189 | 0.76 | 0.630 |
 | Tanimoto SVM, greedy | 186 | 0.75 | 0.650 |
 | Random Forest, greedy | 185 | 0.74 | 0.638 |
+| Tanimoto SVM, mixed | 159 | 0.64 | 0.722 |
+| Random Forest, mixed | 158 | 0.63 | 0.736 |
+| Hybrid quantum, mixed | 149 | 0.60 | 0.720 |
 | Random Forest, uncertainty | 124 | 0.49 | 0.741 |
 | Tanimoto SVM, uncertainty | 120 | 0.48 | 0.751 |
 | Any model, random | 104 | 0.42 | 0.73 to 0.75 |
@@ -508,9 +539,12 @@ inhibitors than random screening on the same budget**, nearly doubling the hit r
 number a drug discovery team would act on. Within that, the hybrid quantum kernel came first on
 all three seeds, by 3 molecules out of 189, which is real but small.
 
-The two strategies trade off exactly as theory says they should, and nobody told the models to:
+The strategies trade off exactly as theory says they should, and nobody told the models to:
 greedy picking finds the most inhibitors and learns the least (0.63 final ROC-AUC), uncertainty
-sampling finds the fewest and learns the most (0.75). A real campaign would mix them.
+sampling finds the fewest and learns the most (0.75). Splitting each batch half and half lands
+where you would hope: 85% of the hits greedy finds, with a model as good as the one pure
+uncertainty sampling builds (0.72 to 0.74). If a team has to keep screening next quarter too,
+that is the setting to run.
 
 ### What would it cost on a real device? (`qudock cost`)
 

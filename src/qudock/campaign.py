@@ -18,6 +18,8 @@ starting molecules:
   screening team wants this quarter,
 * ``uncertainty``: test what it is least sure about, which teaches the model
   most for next quarter,
+* ``mixed``: half the batch greedy and half uncertain, which is what a team
+  that wants hits this quarter and a better model next quarter would do,
 * ``random``: the control, which is what screening without a model looks like.
 
 Labels come from the BACE measurements, so no new chemistry is invented: the
@@ -44,7 +46,7 @@ from qudock.quantum import _STATE_CACHE
 log = logging.getLogger(__name__)
 
 MODELS = ["hybrid_pls", "tanimoto_svm", "rf_fingerprint"]
-STRATEGIES = ["greedy", "uncertainty", "random"]
+STRATEGIES = ["greedy", "uncertainty", "mixed", "random"]
 
 
 def _fit_and_score(name: str, smiles, y, labelled, pool, test_smiles, n_qubits: int, seed: int):
@@ -76,8 +78,18 @@ def _fit_and_score(name: str, smiles, y, labelled, pool, test_smiles, n_qubits: 
 
 def _choose(strategy: str, pool_scores: np.ndarray, batch: int, rng) -> np.ndarray:
     """Positions in the pool to test next."""
+    batch = min(batch, len(pool_scores))
     if strategy == "random":
-        return rng.choice(len(pool_scores), size=min(batch, len(pool_scores)), replace=False)
+        return rng.choice(len(pool_scores), size=batch, replace=False)
+    if strategy == "mixed":
+        half = batch // 2
+        picked = list(np.argsort(-pool_scores)[:half])
+        for i in np.argsort(np.abs(pool_scores)):      # fill the rest with the least certain
+            if len(picked) == batch:
+                break
+            if i not in picked:
+                picked.append(int(i))
+        return np.array(picked)
     order = np.argsort(-pool_scores) if strategy == "greedy" else np.argsort(np.abs(pool_scores))
     return order[:batch]
 

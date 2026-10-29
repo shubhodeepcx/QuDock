@@ -89,3 +89,62 @@ def test_bad_fractions_are_refused():
         ConformalClassifier(SVC(), calib_frac=1.2).fit(X, y)
     with pytest.raises(ValueError, match="confidence"):
         ConformalClassifier(SVC()).fit(X, y).predict_set(X, confidence=90)
+
+
+def test_similarity_weighting_needs_fingerprints_on_both_sides():
+    import pytest
+
+    X, y = _toy()
+    cc = ConformalClassifier(SVC(), similarity_bandwidth=0.4).fit(X, y)
+    with pytest.raises(ValueError, match="fingerprints"):
+        cc.p_values(X, fingerprints=np.ones((len(X), 4)))
+
+
+def test_weighting_falls_back_to_the_plain_p_values_without_fingerprints():
+    X, y = _toy()
+    fp = (X > 0).astype(float)
+    cc = ConformalClassifier(SVC(), similarity_bandwidth=0.4).fit(X, y, fingerprints=fp)
+    plain = ConformalClassifier(SVC()).fit(X, y)
+    assert np.allclose(cc.p_values(X), plain.p_values(X))
+
+
+def test_a_wide_bandwidth_weights_every_calibration_molecule_about_equally():
+    X, y = _toy()
+    fp = np.repeat((X > 0).astype(float), 4, axis=1)
+    wide = ConformalClassifier(SVC(), similarity_bandwidth=1e6).fit(X, y, fingerprints=fp)
+    plain = ConformalClassifier(SVC()).fit(X, y)
+    assert np.allclose(wide.p_values(X, fingerprints=fp), plain.p_values(X), atol=0.02)
+
+
+def test_the_report_accounts_for_every_molecule():
+    X, y = _toy()
+    cc = ConformalClassifier(SVC()).fit(X, y)
+    report = conformal_report(y, cc.predict_set(X, 0.9))
+    assert report["single_label"] + report["dont_know"] + report["no_label"] == 1.0
+
+
+def test_confidence_needed_finds_the_first_confidence_that_delivers():
+    import pandas as pd
+
+    from qudock.conformal import confidence_needed
+
+    tradeoff = pd.DataFrame({
+        "model": ["m"] * 3, "calibration": ["plain"] * 3,
+        "confidence": [0.8, 0.9, 0.95], "coverage": [0.6, 0.85, 0.92],
+        "single_label": [0.9, 0.8, 0.5], "dont_know": [0.1, 0.2, 0.5]})
+    row = confidence_needed(tradeoff, target=0.9).iloc[0]
+    assert row["ask_for"] == 0.95
+    assert row["single_label"] == 0.5
+
+
+def test_confidence_needed_says_so_when_no_confidence_is_enough():
+    import pandas as pd
+
+    from qudock.conformal import confidence_needed
+
+    tradeoff = pd.DataFrame({
+        "model": ["m"] * 2, "calibration": ["plain"] * 2, "confidence": [0.8, 0.9],
+        "coverage": [0.5, 0.6], "single_label": [0.9, 0.8], "dont_know": [0.1, 0.2]})
+    row = confidence_needed(tradeoff, target=0.9).iloc[0]
+    assert np.isnan(row["ask_for"])
+    assert row["coverage"] == 0.6

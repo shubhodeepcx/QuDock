@@ -383,3 +383,33 @@ def cost_study(results: pd.DataFrame, path):
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def confidence_tradeoff(tradeoff: pd.DataFrame, path, target: float = 0.9):
+    """Coverage against decisiveness: what each calibration really buys."""
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4.2))
+    colors = {"hybrid_pls": "#5B3BA8", "tanimoto_svm": "#E8639F"}
+    for (model, calibration), g in tradeoff.groupby(["model", "calibration"]):
+        g = g.sort_values("confidence")
+        style = {"color": colors.get(model, "#333333"),
+                 "ls": "-" if calibration == "plain" else "--", "lw": 2}
+        label = f"{MODEL_NAMES.get(model, model)}, {calibration}"
+        a.plot(g["confidence"], g["coverage"], marker="o", ms=4, label=label, **style)
+        b.plot(g["single_label"], g["coverage"], marker="o", ms=4, label=label, **style)
+    lo, hi = tradeoff["confidence"].min(), tradeoff["confidence"].max()
+    a.plot([lo, hi], [lo, hi], color="#8A8FB9", ls=":", lw=1.2, label="what was promised")
+    a.set_xlabel("confidence asked for")
+    a.set_ylabel("coverage actually delivered")
+    a.set_title("Every method over-promises under a scaffold split")
+    b.axhline(target, color="#2E1B5B", ls=":", lw=1.2)
+    b.annotate(f"{target:.0%} real coverage", (b.get_xlim()[0], target), fontsize=8,
+               color="#2E1B5B", textcoords="offset points", xytext=(4, 4))
+    b.set_xlabel("share of molecules the model commits to")
+    b.set_ylabel("coverage actually delivered")
+    b.set_title("The price of being right more often")
+    for ax in (a, b):
+        ax.grid(alpha=0.3)
+    a.legend(frameon=False, fontsize=8, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
