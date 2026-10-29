@@ -394,9 +394,11 @@ def main():
                  caption="Test 50 molecules, retrain, pick the next 25, repeat: inhibitors found "
                          "and what the model learned")
         st.caption("A guided campaign finds 85 more inhibitors than random screening on the same "
-                   "250-molecule budget. Greedy picking finds the most and learns the least; "
-                   "uncertainty sampling does the opposite. The hybrid quantum kernel came first "
-                   "on all three seeds, by 3 molecules out of 189.")
+                   "250-molecule budget. Greedy picking finds the most and learns the least, "
+                   "uncertainty sampling does the opposite, and splitting the batch half and half "
+                   "keeps 85% of the hits while building as good a model as pure uncertainty "
+                   "sampling. The hybrid quantum kernel came first on all three greedy seeds, by "
+                   "3 molecules out of 189.")
 
         st.subheader("What it would cost on real hardware")
         st.image(str(RESULTS / "cost" / "cost_study.png"),
@@ -441,6 +443,14 @@ def main():
                    "promise assumes new molecules look like old ones. On a scaffold split they do "
                    "not: asking for 90% confidence really gives 66 to 86%. We report the measured "
                    "number rather than the promised one.")
+        st.image(str(RESULTS / "confidence" / "confidence_tradeoff.png"),
+                 caption="What a requested confidence really delivers, and what committing to a "
+                         "label costs")
+        st.caption("We tried the standard fix, weighting the calibration by chemical similarity. "
+                   "It raises coverage only by refusing to commit: plotted against how often the "
+                   "model answers at all, every method sits on the same curve. For 90% real "
+                   "coverage you have to ask for about 98% and accept a \"don't know\" on a "
+                   "third of molecules.")
 
         st.subheader("Full experiments (from results/full)")
         c1, c2 = st.columns(2)

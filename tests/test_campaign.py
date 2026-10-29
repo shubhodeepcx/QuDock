@@ -82,3 +82,29 @@ def test_campaign_study_runs_end_to_end_on_toy_data():
                              start=20, batch=10, rounds=1, n_qubits=2, df=_toy())
     assert set(out["round"]) == {0, 1}
     assert out["roc_auc"].between(0, 1).all()
+
+
+def test_mixed_takes_half_the_batch_from_each_end():
+    scores = np.array([-2.0, -0.1, 0.2, 3.0, 1.5, -0.3])
+    picked = _choose("mixed", scores, 4, np.random.default_rng(0))
+    assert len(set(picked)) == 4
+    assert {3, 4} <= set(picked)                 # the two highest scores
+    assert {1, 2} <= set(picked)                 # the two least certain
+
+
+def test_mixed_never_picks_the_same_molecule_twice():
+    scores = np.array([0.01, -0.02, 0.03, 0.9])
+    picked = _choose("mixed", scores, 4, np.random.default_rng(0))
+    assert sorted(picked) == [0, 1, 2, 3]
+
+
+def test_mixed_lands_between_greedy_and_uncertainty_on_a_learnable_problem():
+    df = _toy()
+    smiles, y = df["smiles"].values, df["label"].values
+    pool, test_idx = np.arange(0, 60), np.arange(60, 80)
+    found = {}
+    for strategy in ("greedy", "mixed", "uncertainty"):
+        rows = run_campaign("tanimoto_svm", strategy, smiles, y, pool, test_idx,
+                            start=20, batch=10, rounds=2, seed=0)
+        found[strategy] = rows[-1]["actives_found"]
+    assert found["greedy"] >= found["mixed"] >= found["uncertainty"]
