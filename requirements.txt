@@ -1,7 +1,7 @@
 # Exact versions we tested with. pyproject.toml keeps looser ranges; `pip install -e .[dev]` also works.
 
 # Quantum
-qiskit==2.6.0
+qiskit==2.6.1
 qiskit-aer==0.18.0
 qiskit-machine-learning==0.9.1
 qiskit-ibm-runtime==0.50.0

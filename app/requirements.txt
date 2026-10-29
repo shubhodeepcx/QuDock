@@ -1,5 +1,5 @@
 # Packages for the web app only (used by Streamlit Community Cloud)
-qiskit==2.6.0
+qiskit==2.6.1
 rdkit==2026.9.1
 scikit-learn==1.9.1
 numpy==2.4.6
