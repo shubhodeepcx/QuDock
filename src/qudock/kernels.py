@@ -124,7 +124,8 @@ class KernelSVM(ClassifierMixin, BaseEstimator):
 
     def fit(self, X, y):
         X = np.asarray(X, dtype=float)
-        self.kernel_ = self._quantum()
+        # the Tanimoto kernel needs no circuit, so it also works with no angle columns
+        self.kernel_ = None if self.kind == "tanimoto" else self._quantum()
         self.X_train_ = X
         self.svc_ = SVC(kernel="precomputed", C=self.C, random_state=self.seed)
         self.svc_.fit(self._gram(X), y)

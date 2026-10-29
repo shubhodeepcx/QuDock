@@ -290,3 +290,96 @@ def graph_study(results: pd.DataFrame, path):
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def robustness_study(summary: pd.DataFrame, spread: pd.DataFrame, path):
+    """Left: the quantum-classical gap on each scaffold split. Right: each model's range."""
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4.2))
+    y = np.arange(len(summary))
+    colors = np.where(summary["delta"] > 0, "#5B3BA8", "#E8639F")
+    a.barh(y, summary["delta"], color=colors)
+    a.axvline(0, color="#2E1B5B", lw=1)
+    a.axvline(summary["delta"].mean(), color="#8A8FB9", ls="--", lw=1.2,
+              label=f"mean {summary['delta'].mean():+.3f}")
+    a.set_yticks(y, [f"split {s}" for s in summary["split_seed"]], fontsize=9)
+    a.set_xlabel("ROC-AUC: best quantum model minus best classical model")
+    a.set_title("One split is not an answer")
+    a.legend(frameon=False, fontsize=9, loc="lower right")
+
+    order = spread.sort_values("mean")
+    y = np.arange(len(order))
+    b.hlines(y, order["worst"], order["best"], color="#B8BDEB", lw=3)
+    b.plot(order["mean"], y, "o", ms=7, color="#5B3BA8")
+    b.set_yticks(y, order["model"], fontsize=9)
+    b.set_xlabel("test ROC-AUC across splits (worst, mean, best)")
+    b.set_title("How far each model moves between splits")
+    for ax in (a, b):
+        ax.grid(alpha=0.3, axis="x")
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+CAMPAIGN_COLORS = {"hybrid_pls": "#5B3BA8", "tanimoto_svm": "#E8639F",
+                   "rf_fingerprint": "#3AA67E"}
+MODEL_NAMES = {"hybrid_pls": "Hybrid (quantum + Tanimoto)", "tanimoto_svm": "Tanimoto SVM",
+               "rf_fingerprint": "Random Forest (fingerprint)", "qsvc_pls": "QSVC (PLS angles)",
+               "projected_pls": "Projected kernel", "svm_rbf_pls": "SVM-RBF (PLS angles)",
+               "rf_pls": "Random Forest (PLS angles)"}
+CAMPAIGN_LINES = {"greedy": "-", "uncertainty": "--", "random": ":"}
+
+
+def campaign_study(summary: pd.DataFrame, path):
+    """Left: inhibitors found against molecules tested. Right: what the model learned."""
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4.2))
+    for (model, strategy), g in summary.groupby(["model", "strategy"]):
+        g = g.sort_values("n_tested")
+        style = {"color": CAMPAIGN_COLORS.get(model, "#333333"),
+                 "ls": CAMPAIGN_LINES.get(strategy, "-"), "lw": 2}
+        label = f"{MODEL_NAMES.get(model, model)}, {strategy}"
+        a.plot(g["n_tested"], g["actives_found"], marker="o", ms=4, label=label, **style)
+        b.plot(g["n_tested"], g["roc_auc"], marker="o", ms=4, label=label, **style)
+        b.fill_between(g["n_tested"], g["roc_auc"] - g["roc_auc_ci"],
+                       g["roc_auc"] + g["roc_auc_ci"], color=style["color"], alpha=0.1)
+    a.set_ylabel("inhibitors found")
+    a.set_title("What the campaign found")
+    b.set_ylabel("test ROC-AUC (unseen scaffolds)")
+    b.set_title("What the model learned")
+    for ax in (a, b):
+        ax.set_xlabel("molecules tested")
+        ax.grid(alpha=0.3)
+    a.legend(frameon=False, fontsize=7.5, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def cost_study(results: pd.DataFrame, path):
+    """Left: seconds to train and score. Right: device time the same run would need."""
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4.2))
+    for model, g in results.groupby("model"):
+        g = g.sort_values("n_train")
+        style = {"lw": 2.2 if g["kind"].iloc[0] != "classical" else 1.4,
+                 "alpha": 1.0 if g["kind"].iloc[0] != "classical" else 0.8}
+        a.plot(g["n_train"], g["total_seconds"], marker="o",
+               label=MODEL_NAMES.get(model, model), **style)
+        device = g[g["device_seconds"] > 0]
+        if len(device):
+            b.plot(device["n_train"], device["device_seconds"] / 3600, marker="o",
+                   label=MODEL_NAMES.get(model, model), **style)
+    a.set_ylabel("seconds, simulated on one laptop core")
+    a.set_title("What it costs to run here")
+    b.set_ylabel("hours of device time")
+    b.set_title("What the same run would cost on hardware")
+    b.axhline(20 / 3600, color="#8A8FB9", ls=":", lw=1.2)
+    b.annotate("our 20 s hardware run", (results["n_train"].min(), 20 / 3600),
+               textcoords="offset points", xytext=(4, 6), fontsize=8, color="#555555")
+    for ax in (a, b):
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_xlabel("training molecules")
+        ax.grid(alpha=0.3)
+        ax.legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)

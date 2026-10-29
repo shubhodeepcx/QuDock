@@ -49,6 +49,7 @@ class FinalConfig:
     models: list[str] = field(default_factory=lambda: list(MODELS))
     reps: int = 2
     test_frac: float = 0.2
+    split_seed: int | None = None       # None: the one fixed scaffold split used everywhere
 
 
 def _cv(seed: int, n: int):
@@ -102,7 +103,7 @@ def inputs(name: str, pca, pls, fp, desc=None):
 def run_final_study(cfg: FinalConfig, df: pd.DataFrame | None = None):
     """Return per-run metrics, and test-set scores of every model at full size (seed 0)."""
     df = load_bace() if df is None else df
-    split = scaffold_split(df["smiles"], test_frac=cfg.test_frac)
+    split = scaffold_split(df["smiles"], test_frac=cfg.test_frac, seed=cfg.split_seed)
     smi_tr, y_tr = df["smiles"].values[split.train], df["label"].values[split.train]
     smi_te, y_te = df["smiles"].values[split.test], df["label"].values[split.test]
     fp_all_tr, fp_te = morgan_fingerprints(smi_tr), morgan_fingerprints(smi_te)
