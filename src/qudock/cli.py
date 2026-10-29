@@ -1,6 +1,7 @@
 """Command line entry point: ``qudock data``, ``benchmark``, ``sweep``, ``noise``,
 ``hardware``, ``final``, ``scaling``, ``trainable``, ``confidence``, ``scorecard``,
-``explain``, ``graph``, ``bench``, ``screen``, ``hardware-svm`` and ``reproduce``."""
+``explain``, ``graph``, ``bench``, ``screen``, ``robustness``, ``campaign``, ``cost``,
+``hardware-svm`` and ``reproduce``."""
 
 from __future__ import annotations
 
@@ -14,24 +15,38 @@ import pandas as pd
 
 from qudock import __version__, provenance
 from qudock.benchmark import BenchmarkConfig, compare_to_best_classical, run_benchmark, summarise
+from qudock.campaign import campaign_verdict, run_campaign_study, summarise_campaign
 from qudock.conformal import run_confidence_study
+from qudock.cost import cost_table, run_cost_study
 from qudock.data import DATASETS, DEFAULT_CACHE, load_bace, random_split, scaffold_split
 from qudock.explain import run_explain_study, summarise_explain
 from qudock.final_study import FinalConfig, compare_pairs, run_final_study, summarise_final
 from qudock.hardware import HardwareConfig, reanalyse, run_hardware_study, save_hardware_study
 from qudock.noise_study import NoiseConfig, run_noise_study
 from qudock.plots import (
+    campaign_study,
     confidence_study,
+    cost_study,
     explain_study,
     final_study,
     learning_curve,
     noise_study,
     qubit_sweep,
+    robustness_study,
     scaling_study,
     trainable_study,
 )
 from qudock.plots import (
     scorecard as plot_scorecard,
+)
+from qudock.robustness import (
+    best_split_free_summary,
+    paired_split_test,
+    per_model_spread,
+    run_robustness_study,
+    split_versus_seed_noise,
+    summarise_robustness,
+    verdict,
 )
 from qudock.scaling import run_scaling_study
 from qudock.scorecard import build_scorecard, verdicts
@@ -217,6 +232,60 @@ def cmd_trainable(args):
     print(f"wrote results to {out}/")
 
 
+def cmd_robustness(args):
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    splits = [int(s) for s in args.splits.split(",")]
+    runs = run_robustness_study(splits=splits, n_qubits=args.qubits, seeds=(args.seed,))
+    runs.to_csv(out / "robustness_runs.csv", index=False)
+    reseeded = runs[runs["split_seed"] >= 0]
+    summary = summarise_robustness(reseeded)
+    summary.to_csv(out / "robustness_summary.csv", index=False)
+    spread = per_model_spread(reseeded)
+    spread.to_csv(out / "per_model_spread.csv", index=False)
+    best_split_free_summary(reseeded).to_csv(out / "model_means.csv", index=False)
+    pairs = [("hybrid_pls", "rf_fingerprint"), ("hybrid_pls", "tanimoto_svm"),
+             ("qsvc_pls", "rf_fingerprint")]
+    tests = pd.DataFrame([t for t in (paired_split_test(reseeded, a, b) for a, b in pairs) if t])
+    tests.to_csv(out / "paired_split_tests.csv", index=False)
+    noise = split_versus_seed_noise(runs)
+    noise.to_csv(out / "split_versus_seed_noise.csv", index=False)
+    robustness_study(summary, spread, out / "robustness_study.png")
+    print(summarise_robustness(runs).round(3).to_string(index=False))
+    print(spread.round(3).to_string(index=False))
+    print(noise.round(4).to_string(index=False))
+    print(pd.Series(verdict(summary)).to_string())
+    print(f"wrote results to {out}/")
+
+
+def cmd_campaign(args):
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    runs = run_campaign_study(seeds=range(args.seeds), start=args.start, batch=args.batch,
+                              rounds=args.rounds, n_qubits=args.qubits)
+    runs.to_csv(out / "campaign_runs.csv", index=False)
+    summary = summarise_campaign(runs)
+    summary.to_csv(out / "campaign_summary.csv", index=False)
+    final = campaign_verdict(runs)
+    final.to_csv(out / "campaign_verdict.csv", index=False)
+    campaign_study(summary, out / "campaign_study.png")
+    print(final.round(3).to_string(index=False))
+    print(f"wrote results to {out}/")
+
+
+def cmd_cost(args):
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    sizes = [None if s == "full" else int(s) for s in args.sizes.split(",")]
+    results = run_cost_study(sizes=sizes, n_qubits=args.qubits, seed=args.seed)
+    results.to_csv(out / "cost.csv", index=False)
+    table = cost_table(results)
+    table.to_csv(out / "cost_table.csv", index=False)
+    cost_study(results, out / "cost_study.png")
+    print(table.round(3).to_string(index=False))
+    print(f"wrote results to {out}/")
+
+
 def cmd_explain(args):
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -281,6 +350,9 @@ REPRODUCE = [
     ("trainable", ["--out", "results/trainable"]),
     ("confidence", ["--out", "results/confidence"]),
     ("explain", ["--out", "results/explain"]),
+    ("robustness", ["--out", "results/robustness"]),
+    ("campaign", ["--out", "results/campaign"]),
+    ("cost", ["--out", "results/cost"]),
     ("scorecard", ["--out", "results/scorecard"]),
     ("hardware", ["--reanalyse"]),          # saved device data, no quantum time needed
     ("hardware-svm", ["--reanalyse"]),
@@ -531,6 +603,32 @@ def main(argv=None):
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default="results/screen")
     p.set_defaults(func=cmd_screen)
+    p = sub.add_parser("robustness",
+                       help="repeat the comparison on several equally hard scaffold splits")
+    p.add_argument("--splits", default="-1,0,1,2,3,4",
+                   help="split seeds; -1 is the fixed split the other studies use")
+    p.add_argument("--qubits", type=int, default=6)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--out", default="results/robustness")
+    p.set_defaults(func=cmd_robustness)
+
+    p = sub.add_parser("campaign",
+                       help="simulate a screening campaign: test, retrain, pick the next batch")
+    p.add_argument("--start", type=int, default=50)
+    p.add_argument("--batch", type=int, default=25)
+    p.add_argument("--rounds", type=int, default=8)
+    p.add_argument("--seeds", type=int, default=3)
+    p.add_argument("--qubits", type=int, default=6)
+    p.add_argument("--out", default="results/campaign")
+    p.set_defaults(func=cmd_campaign)
+
+    p = sub.add_parser("cost",
+                       help="seconds, circuits and device time each model needs")
+    p.add_argument("--sizes", default="100,200,400,full")
+    p.add_argument("--qubits", type=int, default=6)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--out", default="results/cost")
+    p.set_defaults(func=cmd_cost)
 
     p = sub.add_parser("hardware-svm",
                        help="train and test a projected-kernel SVM on an IBM Quantum device")

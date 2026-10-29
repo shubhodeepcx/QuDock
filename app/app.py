@@ -379,6 +379,34 @@ def main():
                    "it picks break fewer fingerprint bits (26 against 34) while costing more "
                    "score. Tab 1 runs this live for any molecule you paste.")
 
+        st.subheader("Would a different split change the answer?")
+        st.image(str(RESULTS / "robustness" / "robustness_study.png"),
+                 caption="The same comparison on five reseeded scaffold splits, plus the fixed "
+                         "one every other study here uses")
+        st.dataframe(pd.read_csv(RESULTS / "robustness" / "robustness_summary.csv").round(3),
+                     hide_index=True, width="stretch")
+        st.caption("The quantum side is behind on every split, by 0.004 to 0.046, and the fixed "
+                   "split sits inside that range, so our headline is not a lucky split. Split "
+                   "choice moves ROC-AUC by 0.02 to 0.04; seeds move it by 0.008 at most.")
+
+        st.subheader("A screening campaign, round by round")
+        st.image(str(RESULTS / "campaign" / "campaign_study.png"),
+                 caption="Test 50 molecules, retrain, pick the next 25, repeat: inhibitors found "
+                         "and what the model learned")
+        st.caption("A guided campaign finds 85 more inhibitors than random screening on the same "
+                   "250-molecule budget. Greedy picking finds the most and learns the least; "
+                   "uncertainty sampling does the opposite. The hybrid quantum kernel came first "
+                   "on all three seeds, by 3 molecules out of 189.")
+
+        st.subheader("What it would cost on real hardware")
+        st.image(str(RESULTS / "cost" / "cost_study.png"),
+                 caption="Simulated seconds, and device time at the rate our own IBM job measured")
+        st.dataframe(pd.read_csv(RESULTS / "cost" / "cost_table.csv").round(3), hide_index=True,
+                     width="stretch")
+        st.caption("A fidelity kernel needs one circuit per pair of molecules: 1,099,285 circuits "
+                   "at full size, 92.5 hours of device time at 0.30 s per circuit. The projected "
+                   "kernel needs one per molecule, 7.6 minutes, and scores 0.011 lower.")
+
         st.subheader("Training the feature map itself")
         st.image(str(RESULTS / "trainable" / "trainable_study.png"),
                  caption="Fixed ZZ map against the same map with its parameters trained by "

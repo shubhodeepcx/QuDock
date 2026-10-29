@@ -11,7 +11,8 @@ def test_help_lists_commands(capsys):
     out = capsys.readouterr().out
     assert all(cmd in out for cmd in ("data", "benchmark", "sweep", "noise", "final",
                                       "scaling", "trainable", "confidence", "scorecard",
-                                      "explain", "hardware-svm"))
+                                      "explain", "robustness", "campaign", "cost",
+                                      "hardware-svm"))
 
 
 def test_command_is_required():
@@ -28,7 +29,8 @@ def test_reproduce_runs_every_study_that_makes_a_figure(monkeypatch, tmp_path):
     monkeypatch.setitem(cli.SAVED_DEVICE_DATA, "hardware-svm", tmp_path / "saved.npz")
     cli.cmd_reproduce(argparse.Namespace(skip="noise,hardware", verbose=False))
     assert calls == ["benchmark", "sweep", "final", "final", "scaling", "trainable",
-                     "confidence", "explain", "scorecard", "hardware-svm"]
+                     "confidence", "explain", "robustness", "campaign", "cost",
+                     "scorecard", "hardware-svm"]
 
 
 def test_list_options_are_parsed_and_checked():
@@ -74,7 +76,8 @@ def test_reproduce_skips_reanalysis_without_saved_device_data(monkeypatch, tmp_p
     calls = []
     monkeypatch.setattr(cli, "main", lambda argv: calls.append(argv[0]))
     monkeypatch.setitem(cli.SAVED_DEVICE_DATA, "hardware-svm", tmp_path / "missing.npz")
-    skip = "benchmark,sweep,noise,final,scaling,trainable,confidence,explain,scorecard,hardware"
+    skip = ("benchmark,sweep,noise,final,scaling,trainable,confidence,explain,"
+            "robustness,campaign,cost,scorecard,hardware")
     cli.cmd_reproduce(argparse.Namespace(skip=skip, verbose=False))
     assert calls == []
     assert "skipping qudock hardware-svm" in capsys.readouterr().out

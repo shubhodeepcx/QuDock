@@ -119,18 +119,28 @@ class Split:
     test: np.ndarray
 
 
-def scaffold_split(smiles: list[str] | pd.Series, test_frac: float = 0.2) -> Split:
+def scaffold_split(smiles: list[str] | pd.Series, test_frac: float = 0.2,
+                   seed: int | None = None) -> Split:
     """Bemis-Murcko scaffold split, as recommended by MoleculeNet.
 
     Molecules sharing a scaffold always land on the same side. Scaffold groups
     are assigned largest first to train until it is full, so the test set gets
     the rarer scaffolds, which is the harder and more realistic setting.
+
+    With a ``seed``, groups of the same size are ordered at random instead of by
+    position. Crowded scaffolds stay in training and the test set stays rare
+    chemistry, but which rare scaffolds are held out changes, so a result can be
+    repeated on several equally hard splits rather than resting on one.
     """
     _check_frac(test_frac)
     groups: dict[str, list[int]] = {}
     for i, s in enumerate(smiles):
         groups.setdefault(murcko_scaffold(s), []).append(i)
-    ordered = sorted(groups.values(), key=lambda g: (len(g), g[0]), reverse=True)
+    if seed is None:
+        ordered = sorted(groups.values(), key=lambda g: (len(g), g[0]), reverse=True)
+    else:
+        rng = np.random.default_rng(seed)
+        ordered = sorted(groups.values(), key=lambda g: (len(g), rng.random()), reverse=True)
 
     n_train = round((1 - test_frac) * len(smiles))
     train: list[int] = []
