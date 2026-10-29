@@ -1,0 +1,40 @@
+{
+  "qudock_version": "0.1.0",
+  "command": [
+    "qudock",
+    "-v",
+    "cost",
+    "--out",
+    "results/cost"
+  ],
+  "config": {
+    "verbose": true,
+    "command": "cost",
+    "sizes": "100,200,400,full",
+    "qubits": 6,
+    "seed": 0,
+    "out": "results/cost"
+  },
+  "git": {
+    "commit": "dc0ff3255b7af87020bc13b08f3c183065a06f33",
+    "dirty": true
+  },
+  "python": "3.13.16",
+  "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+  "packages": {
+    "qiskit": "2.6.0",
+    "qiskit-aer": "0.18.0",
+    "qiskit-machine-learning": "0.9.1",
+    "qiskit-ibm-runtime": "0.50.0",
+    "rdkit": "2026.9.1",
+    "scikit-learn": "1.9.1",
+    "numpy": "2.5.4",
+    "pandas": "3.0.6",
+    "scipy": "1.18.1"
+  },
+  "data_files": {
+    "BBBP.csv": "d07a38487aeac5cee5508413e468043ef3097451d2a112701c2d60be9ec6b662",
+    "bace.csv": "f3fb9ce90bada3e2bd6148b0df13f8f8145a357bf87df0dd5b391ede974fc737"
+  },
+  "created": "2026-10-29T04:11:41+0000"
+}

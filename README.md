@@ -455,6 +455,86 @@ The gap closes as the quantum side gets better features, a tuned bandwidth, a hy
 a trained feature map: from -0.031 to -0.002. It has not crossed zero. That is our result, and
 we would rather show the chart than hide it.
 
+### Does the answer depend on the split we chose? (`qudock robustness`)
+
+Every number above rests on one Bemis-Murcko scaffold split. That is the standard protocol, but
+it means one arbitrary choice of which rare scaffolds to hold out sits underneath every claim. So
+we reseeded it: crowded scaffolds stay in training, but which rare ones are held out changes,
+which swaps about a third of the test set each time. Five reseeded splits, plus the fixed one,
+same models, same inner cross-validation.
+
+![Robustness study](results/robustness/robustness_study.png)
+
+| Split | Best quantum | Best classical | Difference |
+| :-- | --: | --: | --: |
+| fixed (used everywhere else) | 0.778 | 0.787 | -0.008 |
+| reseeded 0 | 0.870 | 0.886 | -0.015 |
+| reseeded 1 | 0.844 | 0.891 | -0.046 |
+| reseeded 2 | 0.887 | 0.899 | -0.012 |
+| reseeded 3 | 0.858 | 0.862 | -0.004 |
+| reseeded 4 | 0.851 | 0.869 | -0.018 |
+
+The conclusion survives: the hybrid kernel is behind on every split, by -0.004 to -0.046, and the
+fixed split we have been quoting is not an outlier. Compared split by split it is level with the
+Tanimoto SVM (-0.004, 95% interval -0.027 to +0.019, ahead on three splits of five) and behind
+the Random Forest on fingerprints (-0.018, -0.031 to -0.006).
+
+What moves most is the split itself. A model's ROC-AUC shifts by 0.02 to 0.04 between splits and
+by 0.0001 to 0.008 between seeds within one split, so split choice is five to twenty times the
+noise that seed averaging removes. Any paper that reports one scaffold split, ours included until
+now, is quoting a number with a 0.04 wobble that its error bars do not show.
+
+### Does it work as a screening campaign? (`qudock campaign`)
+
+A benchmark hands a model a fixed training set. A screening team tests a few compounds, retrains
+on what comes back, and picks the next few. We simulated that loop on BACE: start from 50
+molecules, test 25 per round for 8 rounds, and count the inhibitors found by the time the budget
+runs out. Labels come from the measurements, so nothing is invented, and the held-out scaffold
+test set is never in the pool.
+
+![Screening campaign](results/campaign/campaign_study.png)
+
+| Model and strategy | Inhibitors found in 250 | Hit rate | Final test ROC-AUC |
+| :-- | --: | --: | --: |
+| Hybrid quantum, greedy | 189 | 0.76 | 0.630 |
+| Tanimoto SVM, greedy | 186 | 0.75 | 0.650 |
+| Random Forest, greedy | 185 | 0.74 | 0.638 |
+| Random Forest, uncertainty | 124 | 0.49 | 0.741 |
+| Tanimoto SVM, uncertainty | 120 | 0.48 | 0.751 |
+| Any model, random | 104 | 0.42 | 0.73 to 0.75 |
+
+The headline is not quantum against classical. It is that **a guided campaign finds 85 more
+inhibitors than random screening on the same budget**, nearly doubling the hit rate, which is the
+number a drug discovery team would act on. Within that, the hybrid quantum kernel came first on
+all three seeds, by 3 molecules out of 189, which is real but small.
+
+The two strategies trade off exactly as theory says they should, and nobody told the models to:
+greedy picking finds the most inhibitors and learns the least (0.63 final ROC-AUC), uncertainty
+sampling finds the fewest and learns the most (0.75). A real campaign would mix them.
+
+### What would it cost on a real device? (`qudock cost`)
+
+Accuracy tables leave out half of the question. A fidelity kernel needs one circuit per pair of
+molecules, so training on 1,210 and scoring 303 takes 1,099,285 circuits. Our own hardware job
+ran 66 circuits at 1,024 shots in 20 seconds of quantum time, which is 0.30 s per circuit, and
+that measured rate is what the device column below uses.
+
+![Cost study](results/cost/cost_study.png)
+
+| Model | Test ROC-AUC | Seconds, simulated | Circuits | Device time at our measured rate |
+| :-- | --: | --: | --: | --: |
+| Tanimoto SVM | 0.793 | 0.07 | 0 | none |
+| Random Forest (fingerprint) | 0.781 | 0.93 | 0 | none |
+| SVM-RBF (PLS angles) | 0.770 | 0.27 | 0 | none |
+| Hybrid (quantum + Tanimoto) | 0.761 | 0.14 | 1,099,285 | 92.5 hours |
+| Projected kernel | 0.750 | 0.08 | 1,513 | 7.6 minutes |
+| QSVC (PLS angles) | 0.743 | 0.06 | 1,099,285 | 92.5 hours |
+
+Simulated, everything here is under a second. On hardware, the fidelity kernel is the model that
+scores lowest and costs 92 hours, while the projected kernel needs one circuit per molecule
+instead of one per pair, so it is 700 times cheaper and only 0.011 ROC-AUC behind it. If any of
+this is ever run for real, that is the design to run.
+
 ### Does putting chemistry into the circuit help? (`qudock graph`)
 
 The ZZ map entangles neighbouring qubits in an arbitrary order on compressed fingerprint
@@ -582,6 +662,9 @@ vtu-hc-blackout/
 │   ├── screening.py       # Enrichment, BEDROC, PR-AUC, paired bootstrap
 │   ├── conformal.py       # Calibrated confidence and the applicability domain
 │   ├── explain.py         # Which atoms drove a prediction, by fingerprint-bit occlusion
+│   ├── robustness.py      # The same comparison on several reseeded scaffold splits
+│   ├── campaign.py        # Screening campaign loop: test, retrain, pick the next batch
+│   ├── cost.py            # Seconds, circuits and device time each model needs
 │   ├── scaling.py         # Kernel concentration and accuracy from 4 to 14 qubits
 │   ├── trainable.py       # Feature map whose own parameters are trained by alignment
 │   ├── scorecard.py       # Quantum against classical across every setting
@@ -602,6 +685,9 @@ vtu-hc-blackout/
 ├── results/scaling/       # Kernel concentration study
 ├── results/confidence/    # Conformal prediction and applicability domain
 ├── results/explain/       # Atom-level explanations and the check that they hold
+├── results/robustness/    # The comparison repeated on six scaffold splits
+├── results/campaign/      # Screening campaign simulation
+├── results/cost/          # Runtime, circuit counts and device time
 ├── results/bbbp/          # The same pipeline on a second dataset
 ├── results/trainable/     # Trained feature map study
 ├── results/scorecard/     # The scorecard table and chart
@@ -663,6 +749,9 @@ qudock scaling --out results/scaling # kernel concentration from 4 to 14 qubits,
 qudock trainable                     # train the feature map by kernel alignment, ~10 min
 qudock confidence                    # conformal prediction sets and accuracy by similarity
 qudock explain                       # which atoms drove each prediction, and a check that they did
+qudock robustness                    # repeat the whole comparison on six scaffold splits
+qudock campaign                      # simulate a screening campaign: test, retrain, pick again
+qudock cost                          # seconds, circuits and device time per model
 qudock scorecard                     # one chart of every setting, from the result files
 qudock reproduce                     # rerun every study that makes a table or figure
 qudock hardware-svm --fake           # projected-kernel SVM on a simulated IBM device
