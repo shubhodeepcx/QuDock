@@ -878,7 +878,6 @@ git pull --rebase       # update your branch on top of main
 - [x] Code pushed to `main` and the latest `main` builds successfully
 - [x] Notebooks committed with **cleared outputs** (or use `nbstrip`)
 - [x] `README` includes a demo screenshot / video link
-- [ ] Short project summary submitted on the hackathon portal
 
 ---
 
