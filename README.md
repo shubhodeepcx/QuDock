@@ -27,14 +27,16 @@
 
 QuDock tests whether a quantum kernel can find BACE-1 inhibitors (a key Alzheimer's drug target)
 better than classical machine learning when data is scarce and hardware is noisy. Molecules from
-the MoleculeNet BACE dataset (1,513) are turned into fingerprints, compressed to one angle per
-qubit and loaded into a ZZ feature map. A quantum kernel SVM is compared with SVM-RBF, Random
-Forest and Logistic Regression on identical features, using a scaffold split, 25 to 1,210
-training molecules, 2 to 10 qubits and multiple seeds. The quantum model matches the RBF SVM
-(best ROC-AUC 0.719 at 8 qubits) but does not beat Random Forest (0.729) and shows no small-data
-advantage. Simulated IBM Torino noise distorts the kernel by 8 to 13%, and a real run on
-ibm_marrakesh gives 17.5%, yet the kernel keeps its shape (correlation 0.996) and accuracy barely
-changes.
+the MoleculeNet BACE dataset (1,513) are turned into fingerprints plus descriptors, compressed with
+supervised PLS and loaded into a ZZ feature map. Fidelity, projected, hybrid (quantum + Tanimoto)
+and trainable quantum kernels are compared with tuned classical models on identical features,
+scaffold splits and seeds. The best quantum model, the hybrid kernel, reaches 0.776 ROC-AUC (up
+from 0.687 in round one), within 0.006 of the best classical model (Random Forest, 0.782) but not
+above it; on six reseeded splits classical stays ahead every time. Training the feature map is the
+one significant quantum gain (+0.012, p = 0.03). A real run on ibm_marrakesh keeps the kernel's
+shape (correlation 0.996 with the exact kernel), and the projected kernel cuts a full hardware run
+from 92.5 hours to 7.6 minutes. In a simulated screening campaign, model-guided picking finds 85
+more inhibitors in 250 tests than random picking.
 
 **Demo video:** [watch on Google Drive](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing)
 
