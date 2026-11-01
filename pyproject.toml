@@ -48,9 +48,9 @@ api = ["fastapi>=0.110", "uvicorn>=0.29"]
 docs = ["mkdocs-material>=9.5"]
 
 [project.urls]
-Homepage = "https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout"
+Homepage = "https://github.com/shubhodeepcx/QuDock"
 Demo = "https://qudock-blackout.streamlit.app/"
-Issues = "https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout/issues"
+Issues = "https://github.com/shubhodeepcx/QuDock/issues"
 
 [project.scripts]
 qudock = "qudock.cli:main"

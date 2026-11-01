@@ -11,7 +11,7 @@ authors:
     family-names: Pal
 version: 0.1.0
 license: MIT
-repository-code: "https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout"
+repository-code: "https://github.com/shubhodeepcx/QuDock"
 url: "https://qudock-blackout.streamlit.app/"
 keywords:
   - quantum machine learning

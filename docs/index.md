@@ -19,8 +19,8 @@ answer is:
 ## Install
 
 ```bash
-git clone https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout.git
-cd vtu-hc-blackout
+git clone https://github.com/shubhodeepcx/QuDock.git
+cd QuDock
 pip install -e .[dev]          # add [app] for the web app, [api] for the HTTP API
 ```
 

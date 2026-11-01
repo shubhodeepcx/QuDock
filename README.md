@@ -1,171 +1,76 @@
 <div align="center">
 
-# BlackOut
+# QuDock
 
-**VTU-QFF-HC-0140** &nbsp;|&nbsp; Tier: **Online**
+**Quantum kernels for Alzheimer's drug discovery, tested honestly against classical machine learning**
+
+[Live web app](https://qudock-blackout.streamlit.app/) · [Demo video](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing) · [Documentation](docs/index.md) · [Cite](CITATION.cff)
 
 </div>
 
 ---
 
-<div align="center">
+QuDock asks a simple question: **can a quantum kernel find BACE-1 inhibitors as well as, or better
+than, well-tuned classical machine learning, on real chemistry and on a real IBM quantum computer?**
+BACE-1 is the enzyme that starts the build-up of amyloid plaques in Alzheimer's disease, and new drug
+projects against it start with only a few dozen measured molecules. Quantum kernels are often said to
+learn well from exactly that kind of small, expensive data. QuDock puts that claim to a fair test and
+turns the pipeline into a working screening tool.
+
+## At a glance
 
 | | |
-| :--- | :--- |
-| **Team** | BlackOut |
-| **Team ID** | VTU-QFF-HC-0140 |
-| **Tier** | Online |
-| **Repository** | [vtu-hc-blackout](https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout.git) |
-| **Organisation** | [vtu-qiskit-fall-fest-2026](https://github.com/vtu-qiskit-fall-fest-2026) |
-| **Event** | VTU-QFF Hackathon, VTU-Qiskit Fall Fest 2026 |
+| :-- | :-- |
+| Best quantum model | hybrid quantum + Tanimoto kernel, **0.776** ROC-AUC on BACE (scaffold split) |
+| Best classical model | Random Forest on fingerprints, **0.782**: the gap is **-0.006**, classical still ahead |
+| Second dataset | BBBP (blood-brain barrier): **0.827** vs **0.829**, a statistical tie |
+| Where quantum wins | training the feature map: **+0.012** ROC-AUC over the fixed ZZ map (p = 0.03) |
+| Robustness | six scaffold splits: classical ahead on all six, by 0.004 to 0.046 |
+| Real hardware | ibm_marrakesh kernel correlates **0.996** with the exact one |
+| Cost | full fidelity kernel 92.5 h of device time; projected kernel **7.6 min** |
+| Screening | model-guided picking finds **85 more inhibitors** in 250 tests than random picking |
+| Engineering | `qudock` CLI, HTTP API, Streamlit app, docs site, 182 tests, one command rebuilds every number |
 
-</div>
+**Short version:** quantum kernels reach the classical ceiling on this problem but do not beat it, and
+we report that rather than a flattering subset. The projected kernel makes a real hardware run
+affordable, and the screening loop is useful today whichever kernel drives it.
 
----
-
-## 🧭 Overview
-
-QuDock tests whether a quantum kernel can find BACE-1 inhibitors (a key Alzheimer's drug target)
-better than classical machine learning when data is scarce and hardware is noisy. Molecules from
-the MoleculeNet BACE dataset (1,513) are turned into fingerprints plus descriptors, compressed with
-supervised PLS and loaded into a ZZ feature map. Fidelity, projected, hybrid (quantum + Tanimoto)
-and trainable quantum kernels are compared with tuned classical models on identical features,
-scaffold splits and seeds. The best quantum model, the hybrid kernel, reaches 0.776 ROC-AUC (up
-from 0.687 in round one), within 0.006 of the best classical model (Random Forest, 0.782) but not
-above it; on six reseeded splits classical stays ahead every time. Training the feature map is the
-one significant quantum gain (+0.012, p = 0.03). A real run on ibm_marrakesh keeps the kernel's
-shape (correlation 0.996 with the exact kernel), and the projected kernel cuts a full hardware run
-from 92.5 hours to 7.6 minutes. In a simulated screening campaign, model-guided picking finds 85
-more inhibitors in 250 tests than random picking.
-
-**Demo video:** [watch on Google Drive](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing)
-
-**Live web app:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/)
-
-**Presentation:** [VTU-QFF-HC-0140.pptx](docs/VTU-QFF-HC-0140.pptx)
-
----
-
-## 📌 Table of Contents
-
-- [Overview](#-overview)
-- [Team Members](#-team-members-github-ids)
-- [Problem Statement](#-problem-statement)
-- [Proposed Solution](#-proposed-solution)
-- [Approach & Architecture](#-approach--architecture)
-- [Results](#-results)
-- [Demo](#-demo)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [How to Run](#-how-to-run)
-- [How to Push Code](#-how-to-push-code)
-- [Submission Checklist](#-submission-checklist)
-- [Resources](#-resources)
-- [License](#-license)
-
----
-
-## 👥 Team Members (GitHub IDs)
-
-> Members are added to this repository as **collaborators** and must accept the
-> GitHub invitation before they can push. Add your GitHub username below.
-
-| # | Name | GitHub Username | Role |
-| :-- | :--- | :--- | :--- |
-| 1 | Shubhodeep Chatterjee | [@shubhodeepcx](https://github.com/shubhodeepcx) | Team Lead |
-| 2 | Srijita Banerjee | [@srijita29-stack](https://github.com/srijita29-stack) | Developer |
-| 3 | Rounak Pal | [@Rounak639](https://github.com/Rounak639) | Developer |
-
-<!--
-Optional: add a plain list instead of the table above.
-- @username1
-- @username2
--->
-
----
-
-## ❓ Problem Statement
-
-<!--
-State the problem you are solving. Be specific: what is broken or missing,
-who experiences it, and why does it matter. Link to the official problem
-statement from the brief if one applies.
--->
-
-**Problem:** Early-stage drug discovery involves screening thousands of molecules to identify compounds that can inhibit a specific target protein. However, obtaining experimentally measured activity data is expensive and time-consuming, meaning machine learning models often have to learn from limited labelled examples. Quantum machine learning, particularly quantum kernel methods, offers a potential approach by representing molecular data in quantum feature spaces that may capture complex patterns. However, claims that these methods learn more effectively from less data remain uncertain. Their performance must be evaluated against properly tuned classical models using realistic molecular data splits, while accounting for data leakage, computational costs, and quantum hardware noise.
-
-**Why it matters:** β-secretase 1 (BACE-1) is an important enzyme studied as a potential therapeutic target in Alzheimer's disease research. Predicting molecular activity against BACE-1 provides a practical setting for evaluating quantum machine learning in drug discovery. This project will compare quantum kernel methods with classical models using molecular fingerprints, scaffold-based data splitting, and sample-efficiency experiments. It will also investigate how training data size, quantum circuit design, and hardware noise affect predictive performance. The goal is to determine whether quantum kernels offer a measurable advantage over classical approaches in data-limited virtual screening and whether that advantage, if present, remains meaningful under realistic conditions.
-
-**Track / Category:** Online · Quantum machine learning · Drug discovery
-
----
-
-## 💡 Proposed Solution
-
-<!--
-Describe your solution. Keep it concrete: the core idea, the user flow, and
-the quantum/ML technique you are applying.
--->
-
-**Solution:** We built **QuDock**, a hybrid quantum and classical pipeline that predicts whether
-a molecule inhibits BACE-1. Molecular fingerprints are compressed and loaded into a ZZ feature
-map, and a quantum kernel SVM (QSVC) is trained on the result. We compare it with SVM-RBF,
-Random Forest and Logistic Regression on the same features, with 25 to 1,210 training
-molecules, 2 to 10 qubits, with simulated IBM device noise, and on a real IBM quantum computer.
-
-**Key idea:** Use the fidelity kernel $k(x, y) = |\langle\phi(x)|\phi(y)\rangle|^2$ of a ZZ
-feature map, and test it with a fair benchmark plus a few checks on the kernel itself
-(geometric difference, kernel-target alignment and concentration).
-
-**Why this works:** All models get exactly the same features. The data is split by molecular
-scaffold, so the test set contains molecule families the models have never seen.
-Hyperparameters are tuned with cross-validation, and every result is averaged over several
-seeds and checked with a paired significance test. So if quantum and classical results differ,
-it is because of the models and not because of how we set up the comparison.
-
----
-
-## 🧩 Approach & Architecture
-
-<!--
-Walk through how it works. A simple pipeline diagram in text or Mermaid is ideal.
--->
+## How it works
 
 ```mermaid
 flowchart LR
-    A[BACE SMILES<br/>1,513 molecules] --> B[Clean + scaffold split]
-    B --> C[ECFP4 fingerprint<br/>2048 bits]
-    C --> D[Standardise + PCA<br/>n = qubits, scaled to 0..π]
-    D --> E[ZZ feature map<br/>fidelity kernel]
-    D --> F[Classical baselines<br/>SVM-RBF, RF, LogReg]
-    E --> G[QSVC]
-    F --> H[Benchmark, kernel analysis,<br/>noise study]
+    A[SMILES<br/>BACE, BBBP, ClinTox] --> B[Clean + scaffold split]
+    B --> C[ECFP4 fingerprint<br/>+ 10 RDKit descriptors]
+    C --> D[PLS or PCA<br/>n angles in 0..π]
+    D --> E[ZZ feature map<br/>fixed or trainable]
+    E --> F[Fidelity, projected<br/>or hybrid kernel]
+    C --> G[Classical baselines<br/>SVM, RF, boosting, Tanimoto]
+    F --> H[SVM, conformal sets,<br/>explanations, campaign]
     G --> H
 ```
 
-1. **Input:** the MoleculeNet BACE dataset, 1,513 SMILES strings, each labelled as inhibitor or
-   non-inhibitor (`qudock.data`).
-2. **Preprocessing:** we canonicalise the SMILES, drop molecules that can't be parsed or have
-   conflicting labels, and split by Bemis-Murcko scaffold (1,210 train, 303 test). Each molecule
-   becomes a Morgan (ECFP4) fingerprint, which is standardised, reduced with PCA to one value per
-   qubit and rescaled to [0, π]. All of this is fit on the training data only
-   (`qudock.features`).
-3. **Quantum core:** a ZZFeatureMap with linear entanglement, 1 or 2 reps and a tunable
-   bandwidth. For the benchmark the kernel is computed exactly from statevectors (and cached).
-   For the noise study it is estimated from compute-uncompute circuits with a finite number of
-   shots on AerSimulator, with and without the FakeTorino noise model. Finally, the same
-   circuits for 12 molecules are run on a real IBM device, ibm_marrakesh (`qudock.quantum`,
-   `qudock.noise`, `qudock.hardware`).
-4. **Post-processing:** an SVM is trained on the precomputed kernel, with C and bandwidth chosen
-   by stratified inner cross-validation. Noisy kernels can optionally be repaired to the nearest
-   positive semi-definite (PSD) matrix.
-5. **Output:** test ROC-AUC, accuracy, F1 and MCC for each model, training size and seed,
-   Wilcoxon tests of QSVC against the best classical model, kernel diagnostics, and figures in
-   `results/full/`.
+1. **Data:** MoleculeNet BACE (1,513 molecules, active below an IC50 of 100 nM), plus BBBP and ClinTox.
+   Molecules are split by Bemis-Murcko scaffold, so test molecules come from chemical families never
+   seen in training, the way a new screening series does.
+2. **Features:** each molecule becomes a 2,048-bit Morgan (ECFP4) fingerprint plus 10 descriptors,
+   compressed by supervised PLS (or PCA) to one angle per qubit. Everything is fit on training data only.
+3. **Quantum core:** a ZZ feature map (Hadamards, RZ phases, ZZ entanglers between neighbours) with a
+   bandwidth chosen by kernel-target alignment. The trainable version gives each angle a weight and
+   each qubit an RY rotation. Three kernels sit on top:
+   - **fidelity:** $k(x, y) = |\langle\phi(x)|\phi(y)\rangle|^2$, one circuit per pair of molecules;
+   - **projected:** single-qubit X, Y, Z expectations into an RBF, one circuit per molecule;
+   - **hybrid:** $w \cdot K_Q + (1 - w) \cdot K_{Tanimoto}$, with $w$ chosen by inner cross-validation.
+4. **Fair comparison:** every classical model gets exactly the same features, splits and seeds. Results
+   are averaged over seeds, checked with paired bootstrap and Wilcoxon tests, and repeated on six splits.
+5. **Use:** conformal prediction sets, atom-level explanations, a simulated screening campaign, a
+   library ranker for Alzheimer's projects, and a hardware cost model.
 
----
+## Results
 
-## 📊 Results
+All numbers are test ROC-AUC on scaffold splits unless stated otherwise. Every table and figure is
+written by a script into [`results/`](results) and can be rebuilt with `qudock reproduce`.
+
+### Baseline study: one quantum kernel against classical models
 
 All numbers are test ROC-AUC on the scaffold split. The full tables and figures are in
 [`results/full/`](results/full), and the [demo notebook](notebooks/demo.ipynb) goes through them
@@ -248,9 +153,9 @@ Details, including the job ID, are in [`results/hardware/`](results/hardware).
   Checking it against the real device exposed this, and the numbers above are from the
   corrected run.
 
-### Final round: can a better-fed or hybrid quantum kernel close the gap?
+### Closing the gap: better features, tuned bandwidth and hybrid kernels
 
-For the final round we went after the two weak points above: the quantum kernel only ever saw
+Next we went after the two weak points above: the quantum kernel only ever saw
 6 unsupervised PCA numbers, and the bandwidth was fixed by hand. Every model below runs on the
 same scaffold split, the same training sizes and the same 10 seeds
 (`qudock final --out results/final`, under an hour on a laptop CPU). Besides ROC-AUC we now
@@ -273,7 +178,7 @@ What we added:
 - **Fair baselines:** SVM-RBF and Random Forest on exactly the same PLS features, and Tanimoto SVM
   and Random Forest on the full 2,048-bit fingerprint, which is the classical ceiling.
 
-![Final round study](results/final/final_study.png)
+![Closing the gap](results/final/final_study.png)
 
 **Mean test ROC-AUC over 10 seeds** (6 qubits):
 
@@ -290,15 +195,15 @@ What we added:
 | Comparison | ROC-AUC difference | 95% interval | p |
 | :-- | --: | --: | --: |
 | QSVC PLS vs QSVC PCA | +0.046 | -0.015 to 0.106 | 0.15 |
-| QSVC PLS vs SVM-RBF PCA (first-round baseline) | +0.102 | 0.033 to 0.170 | <0.001 |
+| QSVC PLS vs SVM-RBF PCA (baseline study) | +0.102 | 0.033 to 0.170 | <0.001 |
 | QSVC PLS vs SVM-RBF PLS (same features) | -0.026 | -0.050 to -0.002 | 0.03 |
 | QSVC PLS vs RF PLS (same features) | -0.024 | -0.049 to 0.001 | 0.06 |
 | Hybrid PCA vs Tanimoto SVM | -0.020 | -0.054 to 0.013 | 0.27 |
 
-**What we learned in the final round**
+**What we learned from closing the gap**
 
 - Better features and a tuned bandwidth lift QSVC by 0.035 to 0.049 ROC-AUC at every training
-  size, and it now clearly beats the first-round SVM-RBF baseline (p < 0.001).
+  size, and it now clearly beats the SVM-RBF baseline from the first study (p < 0.001).
 - Most of that gain comes from the features, not from the quantum kernel. On the very same PLS
   features, SVM-RBF and Random Forest still do 0.01 to 0.03 better at every size, and the difference against
   SVM-RBF is significant (p = 0.03). We report this rather than the flattering comparison.
@@ -312,7 +217,7 @@ What we added:
 
 ### Does it survive more qubits? (`qudock scaling`)
 
-The judges asked how we keep classes separable as qubits grow, since quantum kernels concentrate:
+The natural question is how classes stay separable as qubits grow, since quantum kernels concentrate:
 every pair of molecules looks equally distant, and the SVM has nothing left to learn from. We
 measured it directly from 4 to 14 qubits on the same 400 molecules, reporting the spread
 (standard deviation) of the off-diagonal kernel values next to test ROC-AUC.
@@ -331,7 +236,7 @@ measured it directly from 4 to 14 qubits on the same 400 molecules, reporting th
 At a fixed bandwidth the kernel does concentrate: the spread falls by a factor of 11 between 4
 and 14 qubits. Tuning the bandwidth by kernel-target alignment keeps it 9 to 17 times larger,
 and that shows up as 0.03 to 0.09 more ROC-AUC at every width. The alignment picks 0.2 at 4 to
-12 qubits and 0.1 at 14, which is the adaptive scaling the question was about. The projected
+12 qubits and 0.1 at 14, which is the adaptive scaling that question calls for. The projected
 kernel concentrates as much as the plain one by this measure, because it is the RBF on top, not
 the overlap, that keeps it usable.
 
@@ -635,131 +540,31 @@ full size the seeds only change cross-validation folds, so some intervals round 
 Random Forest and gradient-boosting entries use balanced class weights and the SVMs do not;
 the unbalanced Tanimoto SVM still ranks first.
 
----
 
-## 🎬 Demo
+## Demo
 
-**Demo video (about 5.5 minutes, with voiceover: project demo, then how to use the app):**
-[watch on Google Drive](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing)
+**Try it live:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) (the first
+visit takes a minute while the models train). Paste molecules to screen them, compare models, and see
+which atoms drove each prediction.
 
-**Try it live:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) (the first visit takes a minute while the models train)
+**Demo video** (about 5.5 minutes): [watch on Google Drive](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing)
 
-**Presentation:** [VTU-QFF-HC-0140.pptx](docs/VTU-QFF-HC-0140.pptx)
-
-A screenshot from the [demo notebook](notebooks/demo.ipynb), run end to end on a laptop with 4
-qubits and 300 training molecules. It shows the ZZ feature map circuit, the quantum kernel next
-to the classical RBF kernel, and the test ROC-AUC of every model on the same features.
+The [demo notebook](notebooks/demo.ipynb) walks through the pipeline end to end on a laptop: the ZZ
+feature map circuit, the quantum kernel next to the classical RBF kernel, and every model's test ROC-AUC.
 
 ![Demo notebook](docs/demo.png)
 
----
+## Getting started
 
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-| :--- | :--- |
-| Language | Python 3.11+ |
-| Quantum SDK | Qiskit 2.x, Qiskit Aer, Qiskit IBM Runtime (fake backends and a real device) |
-| Quantum ML | ZZ feature map fidelity kernel + scikit-learn SVM (QSVC) |
-| Chemistry | RDKit (SMILES parsing, Morgan fingerprints, Murcko scaffolds) |
-| Classical ML | scikit-learn (SVM-RBF, Random Forest, Logistic Regression, PCA) |
-| Simulation | Statevector (exact kernel), AerSimulator with FakeTorino noise model |
-| Hardware | IBM Quantum Platform, ibm_marrakesh (156 qubits), open plan |
-| Testing / CI | pytest, ruff, GitHub Actions |
-| Environment | JupyterLab / VS Code, `venv`, Docker |
-| Version control | Git + GitHub |
-
----
-
-## 📁 Project Structure
-
-```text
-vtu-hc-blackout/
-├── README.md              # This file
-├── requirements.txt       # Python dependencies
-├── pyproject.toml         # Package metadata and the `qudock` command
-├── Dockerfile
-├── docs/demo.png          # Demo screenshot
-├── .github/workflows/     # CI (ruff + pytest), docs deploy, PyPI release on tags
-├── notebooks/
-│   └── demo.ipynb         # End-to-end walkthrough of the pipeline and results
-├── src/qudock/
-│   ├── data.py            # BACE and BBBP download, cleaning, scaffold split
-│   ├── features.py        # ECFP fingerprints (+ descriptors) -> PCA or PLS -> qubit angles
-│   ├── classical.py       # SVM-RBF, Random Forest, Logistic Regression
-│   ├── quantum.py         # ZZ fidelity kernel and QSVC
-│   ├── benchmark.py       # Sample-efficiency benchmark and statistics
-│   ├── analysis.py        # Geometric difference, alignment, concentration
-│   ├── sweep.py           # Qubit sweep
-│   ├── noise.py           # Shot-based kernel estimation, PSD repair
-│   ├── noise_study.py     # Noise study on a fake IBM backend
-│   ├── hardware.py        # Kernel on a real IBM device
-│   ├── kernels.py         # Tanimoto, projected and hybrid kernels, bandwidth tuning
-│   ├── screening.py       # Enrichment, BEDROC, PR-AUC, paired bootstrap
-│   ├── conformal.py       # Calibrated confidence and the applicability domain
-│   ├── explain.py         # Which atoms drove a prediction, by fingerprint-bit occlusion
-│   ├── robustness.py      # The same comparison on several reseeded scaffold splits
-│   ├── campaign.py        # Screening campaign loop: test, retrain, pick the next batch
-│   ├── cost.py            # Seconds, circuits and device time each model needs
-│   ├── scaling.py         # Kernel concentration and accuracy from 4 to 14 qubits
-│   ├── trainable.py       # Feature map whose own parameters are trained by alignment
-│   ├── scorecard.py       # Quantum against classical across every setting
-│   ├── final_study.py     # Final-round study
-│   ├── hardware_svm.py    # Projected-kernel SVM trained and tested on a real device
-│   ├── graphmap.py        # Feature map built from the pharmacophore graph
-│   ├── shadows.py         # Classical-shadow estimates of one- and two-qubit Paulis
-│   ├── screen.py          # Rank libraries: activity x brain penetration x drug-likeness
-│   ├── bench.py           # QuDock-Bench: fixed tasks, splits and seeds for any model
-│   ├── api.py             # HTTP API around the screener (`qudock serve`)
-│   ├── provenance.py      # provenance.json next to every result
-│   ├── plots.py           # Figures
-│   └── cli.py             # `qudock` command line
-├── app/app.py             # Streamlit web app: screen molecules, compare models
-├── results/full/          # Benchmark, sweep and noise study outputs
-├── results/hardware/      # Real-device kernel run
-├── results/final/         # Final-round study outputs
-├── results/scaling/       # Kernel concentration study
-├── results/confidence/    # Conformal prediction and applicability domain
-├── results/explain/       # Atom-level explanations and the check that they hold
-├── results/robustness/    # The comparison repeated on six scaffold splits
-├── results/campaign/      # Screening campaign simulation
-├── results/cost/          # Runtime, circuit counts and device time
-├── results/bbbp/          # The same pipeline on a second dataset
-├── results/trainable/     # Trained feature map study
-├── results/scorecard/     # The scorecard table and chart
-├── data/                  # Downloaded dataset cache (not committed)
-├── docs/                  # Documentation site (mkdocs), deployed to GitHub Pages
-├── Makefile               # make install / lint / test / check / app
-├── CITATION.cff           # How to cite QuDock
-└── tests/                 # Unit tests
-```
-
----
-
-## 🚀 How to Run
-
-### Prerequisites
-
-- Python 3.11 or newer
-- [Git](https://git-scm.com/downloads)
-- A GitHub account (you need collaborator access to this repo)
-
-### 1. Clone the repository
+Requires Python 3.11 or newer.
 
 ```bash
-git clone https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout.git
-cd vtu-hc-blackout
-```
-
-### 2. Create a virtual environment
-
-```bash
-python3 -m venv .venv
+git clone https://github.com/shubhodeepcx/QuDock.git
+cd QuDock
+python -m venv .venv
 source .venv/bin/activate        # Linux / macOS
 # .venv\Scripts\activate         # Windows (PowerShell)
 ```
-
-### 3. Install dependencies
 
 ```bash
 pip install --upgrade pip
@@ -770,7 +575,7 @@ pip install -e .[dev]            # or: pip install -r requirements.txt
 > block"*, run `export GLIBC_TUNABLES=glibc.rtld.optional_static_tls=4096000` first, together
 > with `export RUST_MIN_STACK=33554432` so the transpiler's threads keep enough stack.
 
-### 4. Run
+### Run
 
 ```bash
 qudock data                          # download BACE, show split sizes
@@ -779,7 +584,7 @@ qudock sweep --out results/full      # 2-10 qubit sweep + kernel diagnostics, ~1
 qudock noise --out results/full      # shot + device noise study, ~30 min
 qudock hardware --reanalyse          # redo the real-device comparison from saved results
 qudock hardware                      # rerun on a real IBM device (needs a saved IBM account)
-qudock final --out results/final     # final-round study: PLS, tuned bandwidth, hybrid, under an hour
+qudock final --out results/final     # PLS, tuned bandwidth and hybrid kernels, under an hour
 qudock final --dataset bbbp          # the same pipeline on blood-brain barrier data
 qudock scaling --out results/scaling # kernel concentration from 4 to 14 qubits, ~10 min
 qudock trainable                     # train the feature map by kernel alignment, ~10 min
@@ -824,7 +629,7 @@ docker build -t qudock .
 docker run --rm -v "$PWD/results:/app/results" qudock benchmark --out results/full
 ```
 
-### 5. Run the tests
+### Tests
 
 ```bash
 make check                       # ruff + pytest with the right environment variables
@@ -833,117 +638,102 @@ make check                       # ruff + pytest with the right environment vari
 
 Full documentation: `pip install -e .[docs] && mkdocs serve`, then open http://127.0.0.1:8000.
 
----
+## Project structure
 
-## 🔁 How to Push Code
-
-> Full walkthrough: **[Git & Collaboration Handbook](../vtu-hc-guide-git-and-collaboration)**, covering
-> the collaboration workflow, branches, pull requests, reviews and conflict resolution.
-
-### Configure Git (first time only)
-
-```bash
-git config --global user.name  "Your Name"
-git config --global user.email "you@example.com"
+```text
+```text
+QuDock/
+├── README.md              # This file
+├── requirements.txt       # Python dependencies
+├── pyproject.toml         # Package metadata and the `qudock` command
+├── Dockerfile
+├── .github/workflows/     # CI (ruff + pytest), docs deploy, PyPI release on tags
+├── notebooks/
+│   └── demo.ipynb         # End-to-end walkthrough of the pipeline and results
+├── src/qudock/
+│   ├── data.py            # BACE and BBBP download, cleaning, scaffold split
+│   ├── features.py        # ECFP fingerprints (+ descriptors) -> PCA or PLS -> qubit angles
+│   ├── classical.py       # SVM-RBF, Random Forest, Logistic Regression
+│   ├── quantum.py         # ZZ fidelity kernel and QSVC
+│   ├── benchmark.py       # Sample-efficiency benchmark and statistics
+│   ├── analysis.py        # Geometric difference, alignment, concentration
+│   ├── sweep.py           # Qubit sweep
+│   ├── noise.py           # Shot-based kernel estimation, PSD repair
+│   ├── noise_study.py     # Noise study on a fake IBM backend
+│   ├── hardware.py        # Kernel on a real IBM device
+│   ├── kernels.py         # Tanimoto, projected and hybrid kernels, bandwidth tuning
+│   ├── screening.py       # Enrichment, BEDROC, PR-AUC, paired bootstrap
+│   ├── conformal.py       # Calibrated confidence and the applicability domain
+│   ├── explain.py         # Which atoms drove a prediction, by fingerprint-bit occlusion
+│   ├── robustness.py      # The same comparison on several reseeded scaffold splits
+│   ├── campaign.py        # Screening campaign loop: test, retrain, pick the next batch
+│   ├── cost.py            # Seconds, circuits and device time each model needs
+│   ├── scaling.py         # Kernel concentration and accuracy from 4 to 14 qubits
+│   ├── trainable.py       # Feature map whose own parameters are trained by alignment
+│   ├── scorecard.py       # Quantum against classical across every setting
+│   ├── final_study.py     # PLS features, tuned bandwidth and hybrid kernels
+│   ├── hardware_svm.py    # Projected-kernel SVM trained and tested on a real device
+│   ├── graphmap.py        # Feature map built from the pharmacophore graph
+│   ├── shadows.py         # Classical-shadow estimates of one- and two-qubit Paulis
+│   ├── screen.py          # Rank libraries: activity x brain penetration x drug-likeness
+│   ├── bench.py           # QuDock-Bench: fixed tasks, splits and seeds for any model
+│   ├── api.py             # HTTP API around the screener (`qudock serve`)
+│   ├── provenance.py      # provenance.json next to every result
+│   ├── plots.py           # Figures
+│   └── cli.py             # `qudock` command line
+├── app/app.py             # Streamlit web app: screen molecules, compare models
+├── results/full/          # Benchmark, sweep and noise study outputs
+├── results/hardware/      # Real-device kernel run
+├── results/final/         # PLS features, tuned bandwidth and hybrid kernels outputs
+├── results/scaling/       # Kernel concentration study
+├── results/confidence/    # Conformal prediction and applicability domain
+├── results/explain/       # Atom-level explanations and the check that they hold
+├── results/robustness/    # The comparison repeated on six scaffold splits
+├── results/campaign/      # Screening campaign simulation
+├── results/cost/          # Runtime, circuit counts and device time
+├── results/bbbp/          # The same pipeline on a second dataset
+├── results/trainable/     # Trained feature map study
+├── results/scorecard/     # The scorecard table and chart
+├── data/                  # Downloaded dataset cache (not committed)
+├── docs/                  # Documentation site (mkdocs), deployed to GitHub Pages
+├── Makefile               # make install / lint / test / check / app
+├── CITATION.cff           # How to cite QuDock
+└── tests/                 # Unit tests
+```
 ```
 
-### Everyday workflow
+## Tech stack
 
-```bash
-# 1. Get the latest changes
-git checkout main
-git pull origin main
-
-# 2. Create a branch for your work
-git checkout -b feature/my-task
-
-# 3. Commit your work
-git add .
-git commit -m "feat: add variational circuit for the search problem"
-
-# 4. Push the branch
-git push -u origin feature/my-task
-
-# 5. Open a Pull Request on GitHub and request a review
-#    https://github.com/vtu-qiskit-fall-fest-2026/vtu-hc-blackout/compare/main...feature/my-task
-
-# 6. After approval, merge into main
-git checkout main
-git pull origin main
-git branch -d feature/my-task
-```
-
-### Commit message convention
-
-| Prefix | Meaning |
+| Layer | Technology |
 | :--- | :--- |
-| `feat:` | New feature |
-| `fix:` | Bug fix |
-| `docs:` | Documentation only |
-| `test:` | Adding or fixing tests |
-| `refactor:` | Code restructure, no behaviour change |
-| `chore:` | Build/config/dependency changes |
+| Language | Python 3.11+ |
+| Quantum SDK | Qiskit 2.x, Qiskit Aer, Qiskit IBM Runtime (fake backends and a real device) |
+| Quantum ML | ZZ feature map fidelity kernel + scikit-learn SVM (QSVC) |
+| Chemistry | RDKit (SMILES parsing, Morgan fingerprints, Murcko scaffolds) |
+| Classical ML | scikit-learn (SVM-RBF, Random Forest, Logistic Regression, PCA) |
+| Simulation | Statevector (exact kernel), AerSimulator with FakeTorino noise model |
+| Hardware | IBM Quantum Platform, ibm_marrakesh (156 qubits), open plan |
+| Testing / CI | pytest, ruff, GitHub Actions |
+| Environment | JupyterLab / VS Code, `venv`, Docker |
+| Version control | Git + GitHub |
 
-### Useful commands
+## Citation
 
-```bash
-git status              # what changed
-git log --oneline -10   # recent commits
-git diff                # review changes before committing
-git stash               # shelve changes temporarily
-git pull --rebase       # update your branch on top of main
-```
+If you use QuDock, please cite it using [`CITATION.cff`](CITATION.cff).
 
-### Collaborating on the same repo
+## References
 
-- **Never push directly to `main`.** Open a Pull Request instead.
-- **Pull before you push** to avoid rejected commits.
-- **Commit often** with clear messages.
-- **Resolve conflicts** locally: `git pull --rebase`, fix the files, then `git add` + `git rebase --continue`.
-- **Ask for a review** before merging. A second pair of eyes catches bugs fast.
+- Havlíček et al., *Supervised learning with quantum-enhanced feature spaces*, Nature 567 (2019).
+- Huang et al., *Power of data in quantum machine learning*, Nature Communications 12 (2021).
+- Hubregtsen et al., *Training quantum embedding kernels on near-term quantum computers*, Physical Review A 106 (2022).
+- Tibshirani et al., *Conformal prediction under covariate shift*, NeurIPS (2019).
+- Wu et al., *MoleculeNet: a benchmark for molecular machine learning*, Chemical Science 9 (2018).
 
----
+## Authors
 
-## ✅ Submission Checklist
+Shubhodeep Chatterjee ([@shubhodeepcx](https://github.com/shubhodeepcx)), with Srijita Banerjee
+([@srijita29-stack](https://github.com/srijita29-stack)) and Rounak Pal ([@Rounak639](https://github.com/Rounak639)).
 
-- [x] Repository created and **public**
-- [x] All team members added as **collaborators** and invitations accepted
-- [x] `README.md` updated with project details, problem statement and solution
-- [x] Team members listed under [Team Members](#-team-members-github-ids)
-- [x] `requirements.txt` committed and project runs from a clean clone
-- [x] Code pushed to `main` and the latest `main` builds successfully
-- [x] Notebooks committed with **cleared outputs** (or use `nbstrip`)
-- [x] `README` includes a demo screenshot / video link
+## License
 
----
-
-## 📚 Resources
-
-| Resource | Link |
-| :--- | :--- |
-| 🔁 Git & collaboration handbook | [Git & Collaboration Handbook](../vtu-hc-guide-git-and-collaboration) |
-| ❓ Problem statements, solutions & terms | [Problem Statements, Solutions & Terms](../vtu-hc-guide-problem-and-solution) |
-| 📄 README writing guide | [README Guide & Template](../vtu-hc-guide-readme-template) |
-| ⚛️ Qiskit documentation | https://docs.quantum.ibm.com/ |
-| ⚛️ Qiskit Runtime & primitives | https://quantum.cloud.ibm.com/docs/ |
-| 🧪 Qiskit Aer simulator | https://docs.quantum.ibm.com/guides/simulator |
-| 💻 IBM Quantum Platform | https://quantum.cloud.ibm.com/ |
-| 🎓 Qiskit textbook | https://qiskit.qotlabs.org/learning/ |
-| 📋 GitHub Docs | https://docs.github.com/ |
-
----
-
-## 📄 License
-
-Released under the [MIT License](LICENSE). See `LICENSE` for details.
-
----
-
-<div align="center">
-
-**BlackOut** · Team ID `VTU-QFF-HC-0140` · Tier `Online`
-· Built with ⚛️ Qiskit for the VTU-QFF Hackathon
-
-[⬆ Back to Top](#blackout)
-
-</div>
+Released under the [MIT License](LICENSE).
