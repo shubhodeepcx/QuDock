@@ -4,7 +4,7 @@
 
 **Quantum kernels for Alzheimer's drug discovery, tested honestly against classical machine learning**
 
-[Live web app](https://qudock-blackout.streamlit.app/) · [Demo video](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing) · [Documentation](docs/index.md) · [Cite](CITATION.cff)
+[Demo video](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing) · [Documentation](docs/index.md) · [Cite](CITATION.cff)
 
 </div>
 
@@ -543,10 +543,6 @@ the unbalanced Tanimoto SVM still ranks first.
 
 ## Demo
 
-**Try it live:** [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) (the first
-visit takes a minute while the models train). Paste molecules to screen them, compare models, and see
-which atoms drove each prediction.
-
 **Demo video** (about 5.5 minutes): [watch on Google Drive](https://drive.google.com/file/d/17vJ5pzTXjhN4cXxzwQyV3GzaghxDYzhk/view?usp=sharing)
 
 The [demo notebook](notebooks/demo.ipynb) walks through the pipeline end to end on a laptop: the ZZ
@@ -609,7 +605,7 @@ qudock serve                         # HTTP API (pip install -e .[api]), docs at
 Every command that writes results also writes `provenance.json` (command, git commit,
 package versions, dataset hashes) into the same folder.
 
-Or try the web app, live at [qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/) or locally, where you can screen your own molecules and change the settings:
+Or run the web app locally, where you can screen your own molecules and change the settings:
 
 ```bash
 pip install -e ".[app]"

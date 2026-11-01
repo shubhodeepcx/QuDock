@@ -28,6 +28,3 @@ On Linux, if importing Qiskit Aer fails with *"cannot allocate memory in static 
 block"*, export `GLIBC_TUNABLES=glibc.rtld.optional_static_tls=4096000` and
 `RUST_MIN_STACK=33554432` first (`make test` does this for you).
 
-## Live demo
-
-[qudock-blackout.streamlit.app](https://qudock-blackout.streamlit.app/)

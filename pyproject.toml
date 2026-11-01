@@ -49,7 +49,6 @@ docs = ["mkdocs-material>=9.5"]
 
 [project.urls]
 Homepage = "https://github.com/shubhodeepcx/QuDock"
-Demo = "https://qudock-blackout.streamlit.app/"
 Issues = "https://github.com/shubhodeepcx/QuDock/issues"
 
 [project.scripts]
